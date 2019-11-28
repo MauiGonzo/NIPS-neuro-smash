@@ -13,3 +13,9 @@ If an agent is completely in a black area (outside the shot of the camera), then
 
 ## Overlapping agents
 Lastly, it would be nice if you noted whenever the two agents are overlapping. This information might be used to train the model more effectively.
+
+## Sheets
+The Google Sheets file can be found [here](https://docs.google.com/spreadsheets/d/1evDrBCiAOz2T-c8YuZ_rBR-cBUegqDVKjAEKWHyJjKE/edit?usp=sharing).
+
+## Division of Labour
+I will do image 0 to 332, Maurice will do image 333 to 665 and Roel will do image 666 to 999.
