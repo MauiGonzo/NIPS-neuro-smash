@@ -12,6 +12,9 @@ class Agent:
         # return 2 # right
         return   3 # random
 
+    def train(self, end, reward, state):
+        pass
+
 class Environment:
     def __init__(self, ip = "127.0.0.1", port = 13000, size = 768, timescale = 1):
         self.client     = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -31,7 +34,7 @@ class Environment:
         return self._receive()
 
     def state2image(self, state):
-        return Image.fromarray(np.array(state, "uint8").reshape(self.size, self.size, 3))
+        return Image.fromarray(np.array(state, np.uint8).reshape(self.size, self.size, 3))
 
     def _receive(self):
         # Kudos to Jan for the socket.MSG_WAITALL fix!
