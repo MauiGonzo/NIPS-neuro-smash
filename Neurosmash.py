@@ -25,6 +25,8 @@ class Environment:
 
         self.client.connect((ip, port))
 
+        self.n_actions = 3
+
     def reset(self):
         self._send(1, 0)
         return self._receive()
@@ -43,7 +45,7 @@ class Environment:
         reward = data[1]
         state  = [data[i] for i in range(2, len(data))]
 
-        return end, reward, state
+        return end, reward + (1 - end), state
 
     def _send(self, action, command):
         self.client.send(bytes([action, command]))
