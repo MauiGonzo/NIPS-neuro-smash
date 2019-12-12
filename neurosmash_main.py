@@ -61,7 +61,7 @@ def run_agent(env, agent, epsilon_start=0.95, epsilon_decay=0.995,
                 # strictly follow currently learned behaviour (exploitation)
                 action = agent.step(end, reward, old_state)
 
-            for _ in range(locator.cooldown_time):
+            for _ in range(locator.cooldown_time + 1):
                 # do action, get reward, and a new observation for the next round
                 end, reward, state_img = env.step(action)
                 new_loc_red, new_loc_blue = get_locations(state_img)
@@ -91,9 +91,13 @@ if __name__ == '__main__':
     parser.add_argument('agents', nargs='+', type=str, help='agent names to train, choose <PG, NEAT, random>')
     args = parser.parse_args()
 
-    size = 768
-    locator = AgentLocator()
-    aggregator = Aggregator(size, 0.02*locator.cooldown_time)
+    size = 64
+    locator = AgentLocator(cooldown_time=0,
+                           minimum_agent_area=10,
+                           minimum_agent_area_overlap=4,
+                           blue_marker_thresh=2,
+                           red_marker_thresh=2)
+    aggregator = Aggregator(size, 0.02*(locator.cooldown_time + 1))
     environment = Neurosmash.Environment(size=size)
 
     for ag in args.agents:
