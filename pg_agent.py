@@ -167,14 +167,8 @@ class PGAgent(Neurosmash.Agent):
         for i in range(len(Q_values) - 1, 0, -1):
             Q_values[i - 1] = reward_batch[i - 1] + self.y * Q_values[i]
 
-        if torch.isnan(action_log_prob_batch)[0] or torch.isnan(Q_values)[0]:
-            i = 3
-
         # compute loss
         loss = -1 * torch.sum(action_log_prob_batch * Q_values)
-
-        if torch.isnan(loss):
-            i = 3
 
         # update model parameters
         self.optimizer.zero_grad()

@@ -98,7 +98,7 @@ if __name__ == '__main__':
                            blue_marker_thresh=2,
                            red_marker_thresh=2)
     aggregator = Aggregator(size, 0.02*(locator.cooldown_time + 1))
-    environment = Neurosmash.Environment(size=size)
+    environment = Neurosmash.Environment(size=size, timescale=10)
 
     for ag in args.agents:
         if ag == 'PG':
