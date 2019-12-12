@@ -53,22 +53,24 @@ def run_agent(env, agent, epsilon_start=0.95, epsilon_decay=0.995,
                                          old_loc_blue[0], old_loc_red[1],
                                          old_loc_blue[0], old_loc_red[1])
         while not end:
-
             # choose an action
             if random.random() < epsilon:
                 # random actions to explore environment (exploration)
-                action = random.randrange(3)
+                action = random.randrange(environment.n_actions)
             else:
                 # strictly follow currently learned behaviour (exploitation)
                 action = agent.step(end, reward, old_state)
 
-            # do action, get reward, and a new observation for the next round
-            end, reward, state_img = env.step(action)
-            new_loc_red, new_loc_blue = get_locations(state_img)
+            for _ in range(locator.cooldown_time):
+                # do action, get reward, and a new observation for the next round
+                end, reward, state_img = env.step(action)
+                new_loc_red, new_loc_blue = get_locations(state_img)
+
             new_state = aggregator.aggregate(old_loc_red[0], old_loc_red[1],
                                              new_loc_red[0], new_loc_red[1],
                                              old_loc_blue[0], old_loc_red[1],
                                              new_loc_blue[0], new_loc_red[1])
+            print(new_state)
 
             if train:  # adjust agent model's parameters (training step)
                 agent.train(end, action, old_state, reward, new_state)
@@ -84,16 +86,14 @@ def run_agent(env, agent, epsilon_start=0.95, epsilon_decay=0.995,
             epsilon = max(epsilon_min, epsilon * epsilon_decay)
 
 
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('agents', nargs='+', type=str, help='agent names to train, choose <PG, NEAT>')
+    parser.add_argument('agents', nargs='+', type=str, help='agent names to train, choose <PG, NEAT, random>')
     args = parser.parse_args()
 
     size = 768
     locator = AgentLocator()
-    aggregator = Aggregator(size)
+    aggregator = Aggregator(size, 0.02*locator.cooldown_time)
     environment = Neurosmash.Environment(size=size)
 
     for ag in args.agents:
@@ -104,5 +104,9 @@ if __name__ == '__main__':
         elif ag == 'NEAT':
             print('Processing agent: {}'.format(ag))
             # do stuff
+        elif ag == 'random':
+            print('Processing agent: {}'.format(ag))
+            random_agent = Neurosmash.Agent()
+            run_agent(environment, random_agent)
         else: # current agent not known
             print('unknonw agent   : {}'.format(ag))

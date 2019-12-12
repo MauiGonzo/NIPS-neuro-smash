@@ -12,7 +12,7 @@ class Agent:
         # return 2 # right
         return   3 # random
 
-    def train(self, end, reward, state):
+    def train(self, end, action, old_state, reward, new_state):
         pass
 
 class Environment:
@@ -42,10 +42,11 @@ class Environment:
         # Kudos to Jan for the socket.MSG_WAITALL fix!
         data   = self.client.recv(2 + 3 * self.size ** 2, socket.MSG_WAITALL)
         end    = data[0]
-        reward = data[1]
+        reward = data[1] + (1 - end)
         state  = [data[i] for i in range(2, len(data))]
 
-        return end, reward + (1 - end), state
+        print(reward)
+        return end, reward, state
 
     def _send(self, action, command):
         self.client.send(bytes([action, command]))
