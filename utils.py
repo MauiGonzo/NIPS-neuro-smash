@@ -184,3 +184,7 @@ class Aggregator(object):
              ]
 
         return torch.tensor(l)
+
+if __name__ is '__main__':
+    state = torch.tensor([5.6923, 18.4615, 4.6364, 18.4615, -1.5708, -1.5708, 0.0000, 0.0000,
+            29.5869, 30.5296, 1.0000, 0.0000, 29.5869, 1.5296])

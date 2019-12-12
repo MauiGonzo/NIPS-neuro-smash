@@ -12,7 +12,7 @@ class Agent:
         # return 2 # right
         return   3 # random
 
-    def train(self, end, reward, state):
+    def train(self, end, action, old_state, reward, new_state):
         pass
 
 class Environment:
@@ -24,6 +24,8 @@ class Environment:
         self.timescale  = timescale
 
         self.client.connect((ip, port))
+
+        self.n_actions = 3
 
     def reset(self):
         self._send(1, 0)
@@ -38,10 +40,14 @@ class Environment:
 
     def _receive(self):
         # Kudos to Jan for the socket.MSG_WAITALL fix!
-        data   = self.client.recv(2 + 3 * self.size ** 2, socket.MSG_WAITALL)
-        end    = data[0]
-        reward = data[1]
-        state  = [data[i] for i in range(2, len(data))]
+        data = self.client.recv(2 + 3 * self.size ** 2, socket.MSG_WAITALL)
+        end = data[0]
+        if end:
+            reward = data[1]
+        else:
+            reward = 0.1
+        print(reward)
+        state = [data[i] for i in range(2, len(data))]
 
         return end, reward, state
 
