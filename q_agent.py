@@ -242,15 +242,11 @@ class QAgent(Neurosmash.Agent):
 
         # compute target network Q values on new states based on policy network actions
         new_actions = self.policy_network(new_state_batch).argmax(1, keepdim=True)
-        Q_new = self.target_network(new_state_batch).gather(1, new_actions)
-        for i in range(self.n - 1, 0, -1):
-            Q_new = reward_batch[:, i] + self.y * Q_new
-
-        if end:
-            i = 2
+        Q_target = self.target_network(new_state_batch).gather(1, new_actions)
 
         # compute what the predicted Q values should have been
-        Q_target = reward_batch[:, 0] + (1 - end_batch[:, 0]) * self.y * Q_new
+        for i in range(self.n)[::-1]:
+            Q_target = reward_batch[:, i] + (1 - end_batch[:, i]) * self.y * Q_target
 
         # compute the loss as MSE between predicted and target Q values
         loss = self.criterion(Q_pred, Q_target)
