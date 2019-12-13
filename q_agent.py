@@ -54,7 +54,7 @@ class ReplayMemory(object):
             old_state = [object] previous state of the environment
             reward    = [int] reward received after doing action in old_state
             new_state = [object] the state of the environment after doing
-                                action in old_state
+                                 action in old_state
         """
         # determine whether n transitions are aggregated this time step
         n_transitions = len(self.transitions) > (self.n - 1) * 4
@@ -222,23 +222,21 @@ class QAgent(Neurosmash.Agent):
         if len(self.memory) < self.batch_size:
             return
 
-        # sample state transitions
+        # sample state transition lists
         minibatch = self.memory.sample(self.batch_size)
 
         # unpack minibatch
-        end_batch = torch.zeros((self.batch_size, self.n, 1)).float()
-        action_batch = torch.zeros((self.batch_size, self.n, 1)).long()
-        old_states_batch = torch.zeros((self.batch_size, self.n_obs, self.n))
-        reward_batch = torch.zeros((self.batch_size, self.n, 1))
+        ends_batch = torch.zeros((self.batch_size, self.n, 1)).float()
+        action_batch = torch.tensor(minibatch[1]).unsqueeze(1)
+        old_state_batch = torch.stack(minibatch[2])
+        rewards_batch = torch.zeros((self.batch_size, self.n, 1))
         new_state_batch = torch.stack(minibatch[-1])
         for i in range(self.n):
-            end_batch[:, i] = torch.tensor(minibatch[i * 4]).unsqueeze(1)
-            action_batch[:, i] = torch.tensor(minibatch[i * 4 + 1]).unsqueeze(1)
-            old_states_batch[:, :, i] = torch.stack(minibatch[i * 4 + 2])
-            reward_batch[:, i] = torch.tensor(minibatch[i * 4 + 3]).unsqueeze(1)
+            ends_batch[:, i, 0] = torch.tensor(minibatch[i * 4])
+            rewards_batch[:, i, 0] = torch.tensor(minibatch[i * 4 + 3])
 
         # compute predicted Q values on old states
-        Q_pred = self.policy_network(old_states_batch[:, :, 0]).gather(1, action_batch[:, 0])
+        Q_pred = self.policy_network(old_state_batch).gather(1, action_batch)
 
         # compute target network Q values on new states based on policy network actions
         new_actions = self.policy_network(new_state_batch).argmax(1, keepdim=True)
@@ -246,7 +244,7 @@ class QAgent(Neurosmash.Agent):
 
         # compute what the predicted Q values should have been
         for i in range(self.n)[::-1]:
-            Q_target = reward_batch[:, i] + (1 - end_batch[:, i]) * self.y * Q_target
+            Q_target = rewards_batch[:, i] + (1 - ends_batch[:, i]) * self.y * Q_target
 
         # compute the loss as MSE between predicted and target Q values
         loss = self.criterion(Q_pred, Q_target)
