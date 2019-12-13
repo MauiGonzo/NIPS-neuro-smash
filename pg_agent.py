@@ -67,8 +67,7 @@ class MLP(nn.Module):
     """
 
     def __init__(self, n_in, n_hidden, n_out, p=0.5):
-        """
-        Initializes the MLP.
+        """Initializes the MLP.
 
         Args:
             n_in     = [int] number of input units
@@ -98,6 +97,12 @@ class PGAgent(Neurosmash.Agent):
     """
 
     def __init__(self, n_obs, n_actions):
+        """Initializes the agent.
+
+        Args:
+            n_obs     = [int] number of elements in state vector
+            n_actions = [int] number of possible actions in environment
+        """
         # setup the neural network
         self.model = MLP(n_obs, 128, n_actions)
 
@@ -114,7 +119,9 @@ class PGAgent(Neurosmash.Agent):
         """Agent determines the action based on the current state and model.
 
         Args:
-            state = [object] current state of the environment
+            end    = [bool] whether the episode has finished
+            reward = [int] reward received after doing previous action
+            state  = [object] current state of the environment
 
         Returns [int]:
             Action in the range [0, n_actions).

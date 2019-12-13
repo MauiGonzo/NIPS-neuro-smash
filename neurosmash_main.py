@@ -11,6 +11,7 @@ import numpy as np
 import Neurosmash
 from agent_locator import AgentLocator
 from pg_agent import PGAgent
+from q_agent import QAgent
 from utils import Aggregator
 
 def neatagent():
@@ -31,6 +32,10 @@ def run_agent(env, agent, epsilon_start=0.95, epsilon_decay=0.995,
     """Function to run the agent for a given number of episodes.
 
     Args:
+        env           = [Neurosmash.Environment] the environment in which
+                                                 the agent lives and acts
+        agent         = [Neurosmash.Agent] the agent that determines the
+                                           action, given the current state
         epsilon_start = [float] starting value for exploration/
                                 exploitation parameter
         epsilon_decay = [float] number signifying how fast epsilon decreases
@@ -88,7 +93,7 @@ def run_agent(env, agent, epsilon_start=0.95, epsilon_decay=0.995,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('agents', nargs='+', type=str, help='agent names to train, choose <PG, NEAT, random>')
+    parser.add_argument('agents', nargs='+', type=str, help='agent names to train, choose <PG, NEAT, Q, random>')
     args = parser.parse_args()
 
     size = 64
@@ -108,6 +113,10 @@ if __name__ == '__main__':
         elif ag == 'NEAT':
             print('Processing agent: {}'.format(ag))
             # do stuff
+        elif ag == 'Q':
+            print('Processing agent: {}'.format(ag))
+            q_agent = QAgent(aggregator.n_obs, environment.n_actions)
+            run_agent(environment, q_agent)
         elif ag == 'random':
             print('Processing agent: {}'.format(ag))
             random_agent = Neurosmash.Agent()
