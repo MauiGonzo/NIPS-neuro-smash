@@ -96,15 +96,17 @@ class PGAgent(Neurosmash.Agent):
         memory    = [EpisodeMemory] stores (action probability, reward) pairs
     """
 
-    def __init__(self, n_obs, n_actions):
+    def __init__(self, num_obs, num_actions):
         """Initializes the agent.
 
         Args:
-            n_obs     = [int] number of elements in state vector
-            n_actions = [int] number of possible actions in environment
+            num_obs     = [int] number of elements in state vector
+            num_actions = [int] number of possible actions in environment
         """
+        super(PGAgent, self).__init__()
+
         # setup the neural network
-        self.model = MLP(n_obs, 128, n_actions)
+        self.model = MLP(num_obs, 128, num_actions)
 
         # setup an optimizer
         self.optimizer = Adam(self.model.parameters(), lr=0.01)
@@ -121,10 +123,10 @@ class PGAgent(Neurosmash.Agent):
         Args:
             end    = [bool] whether the episode has finished
             reward = [int] reward received after doing previous action
-            state  = [object] current state of the environment
+            state  = [torch.Tensor] current state of the environment
 
         Returns [int]:
-            Action in the range [0, n_actions).
+            Action in the range [0, num_actions).
         """
         # apply neural network to get action distribution
         action_probs = F.softmax(self.model(state), dim=-1)
@@ -142,7 +144,7 @@ class PGAgent(Neurosmash.Agent):
 
         Args:
            end       = [bool] whether the episode has finished
-           action    = [int] action as int in the range [0, n_actions)
+           action    = [int] action as int in the range [0, num_actions)
            old_state = [object] previous state of the environment
            reward    = [int] reward received after doing action in old_state
            new_state = [object] the state of the environment after doing
@@ -154,8 +156,8 @@ class PGAgent(Neurosmash.Agent):
         # compute log probability of sampled action
         action_log_prob = action_probs[action].log()
 
-        # add action log probability and reward to memory
-        if action_log_prob > -500:
+        # add non-infinite action probability and reward to memory
+        if -500 < action_log_prob < 0:
             self.memory.push(action_log_prob, reward)
 
         if not end:  # episode is not yet done
@@ -171,11 +173,12 @@ class PGAgent(Neurosmash.Agent):
         # compute Q values for each step in the episode
         Q_values = torch.zeros(len(reward_batch))
         Q_values[-1] = reward_batch[-1]
-        for i in range(len(Q_values) - 1, 0, -1):
+        for i in range(len(Q_values))[:0:-1]:
             Q_values[i - 1] = reward_batch[i - 1] + self.y * Q_values[i]
 
         # compute loss
         loss = -1 * torch.sum(action_log_prob_batch * Q_values)
+        print(f'loss: {loss}')
 
         # update model parameters
         self.optimizer.zero_grad()

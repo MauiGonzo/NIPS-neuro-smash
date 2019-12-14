@@ -46,7 +46,6 @@ class Environment:
             reward = data[1]
         else:
             reward = 0.1
-        print(reward)
         state = [data[i] for i in range(2, len(data))]
 
         return end, reward, state

@@ -141,14 +141,13 @@ class QAgent(Neurosmash.Agent):
     Attributes:
         policy_net = [nn.Module] DDQN that is updated every transition
         target_net = [nn.Module] DDQN that is used to retrieve the Q values
-        num_obs    = [int] number of elements in DDQN input vector
         optimizer  = [Optimizer] optimizer used to train the model
         criterion  = [nn.Module] the loss function of the model
         y          = [float] the gamma parameter for Q learning
         memory     = [ReplayMemory] memory to randomly sample state transitions
         batch_size = [int] the batch size in one update step
-        n_update   = [int] number of steps before target network is updated
-        n_steps    = [int] the number of steps the agent has performed
+        num_update = [int] number of steps before target network is updated
+        num_steps  = [int] the number of steps the agent has performed
         n          = [int] number of transitions used for N-step DDQN
     """
 
@@ -159,12 +158,13 @@ class QAgent(Neurosmash.Agent):
             num_obs     = [int] number of elements in DDQN input vector
             num_actions = [int] number of possible actions in environment
         """
+        super(QAgent, self).__init__()
+
         # setup the policy and target neural networks
         self.policy_network = DDQN(num_obs, 64, num_actions)
         self.target_network = DDQN(num_obs, 64, num_actions)
         self.target_network.load_state_dict(self.policy_network.state_dict())
         self.target_network.eval()
-        self.n_obs = num_obs
 
         # setup an optimizer
         self.optimizer = Adam(self.policy_network.parameters(), lr=4e-5)
@@ -183,8 +183,8 @@ class QAgent(Neurosmash.Agent):
         self.batch_size = 32
 
         # set target network updating parameters
-        self.n_update = 128
-        self.n_steps = 0
+        self.num_update = 128
+        self.num_steps = 0
 
     def step(self, end, reward, state):
         """The agent selects action given the current state and target network.
@@ -253,6 +253,6 @@ class QAgent(Neurosmash.Agent):
         self.optimizer.step()
 
         # update target network periodically
-        self.n_steps += 1
-        if self.n_steps % self.n_update == 0:
+        self.num_steps += 1
+        if self.num_steps % self.num_update == 0:
             self.target_network.load_state_dict(self.policy_network.state_dict())

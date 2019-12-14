@@ -153,23 +153,22 @@ class Aggregator(object):
         max_dist_from_center = self.diagonal / 2
         return max_dist_from_center / self.dist_from_center(x_red, y_red)
 
-    def aggregate(self, x1_red: int, y1_red: int,
-                        x2_red: int, y2_red: int,
-                        x1_blue: int, y1_blue: int,
-                        x2_blue: int, y2_blue: int) -> torch.Tensor:
+    def aggregate(self, xy1_red: (int, int), xy2_red: (int, int),
+                        xy1_blue: (int, int), xy2_blue: (int, int)) -> torch.Tensor:
         """Aggregate all the relevant metrics in a single vector of numbers.
            The vector will be a torch.Tensor for easy use by PyTorch.
 
-        :param x1_red: x pixel coordinate of first location of red agent
-        :param y1_red: y pixel coordinate of first location of red agent
-        :param x2_red: x pixel coordinate of second location of red agent
-        :param y2_red: y pixel coordinate of second location of red agent
-        :param x1_blue: x pixel coordinate of first location of blue agent
-        :param y1_blue: y pixel coordinate of first location of blue agent
-        :param x2_blue: x pixel coordinate of second location of blue agent
-        :param y2_blue: y pixel coordinate of second location of blue agent
-        :return: A vector with all relevant values.
+        :param xy1_red: x, y pixel coordinates of first location of red agent
+        :param xy2_red: x, y pixel coordinates of second location of red agent
+        :param xy1_blue: x, y pixel coordinates of first location of blue agent
+        :param xy2_blue: x, y pixel coordinates of second location of blue agent
+        :return: A torch.Tensor with all relevant values.
         """
+        x1_red, y1_red = xy1_red
+        x2_red, y2_red = xy2_red
+        x1_blue, y1_blue = xy1_blue
+        x2_blue, y2_blue = xy2_blue
+
         l = [x2_red, y2_red, x2_blue, y2_blue,
              self.direction(x1_red, y1_red, x2_red, y2_red),
              self.direction(x1_blue, y1_blue, x2_blue, y2_blue),
@@ -184,7 +183,3 @@ class Aggregator(object):
              ]
 
         return torch.tensor(l)
-
-if __name__ is '__main__':
-    state = torch.tensor([5.6923, 18.4615, 4.6364, 18.4615, -1.5708, -1.5708, 0.0000, 0.0000,
-            29.5869, 30.5296, 1.0000, 0.0000, 29.5869, 1.5296])

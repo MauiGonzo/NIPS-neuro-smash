@@ -7,6 +7,7 @@ import argparse
 import random
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 import Neurosmash
 from agent_locator import AgentLocator
@@ -18,13 +19,50 @@ def neatagent():
     # do stuff
     pass
 
+
 def get_locations(state_img: list):
-    state_img = np.array(state_img, np.uint8).reshape(size, size, 3)
+    """Determines the agents' locations in pixel coordinates
+       given the state image.
+
+    Args:
+        state_img = [[int]] current state of the environment
+
+    Returns [((x_red, y_red), (x_blue, y_blue))]:
+        The x and y pixel coordinate locations of the red and blue agents.
+    """
+    # get (size, size, 3) np.ndarray of current state
+    state_img = np.asarray(environment.state2image(state_img), np.uint8, 'f')
+
+    # update agents' locations and retrieve said locations
     locator.update_agent_locations(state_img)
     loc_red = locator.red_agent.pos
     loc_blue = locator.blue_agent.pos
 
     return loc_red, loc_blue
+
+
+def plot_locations(state_img, xy_red, xy_blue):
+    """Plots the given locations of the agents on the state image.
+
+    Args:
+        state_img = [[int]] current state of the environment
+        xy_red    = [(int,int)] x and y pixel coordinates of red agent
+        xy_blue   = [(int,int)] x and y pixel coordinates of blue agent
+    """
+    # get PIL image of current state
+    state_img = environment.state2image(state_img)
+
+    # plot agents' locations
+    ax.clear()
+    ax.imshow(state_img, extent=(0.5, size + 0.5, size + 0.5, 0.5))
+    ax.scatter([xy_red[0], xy_blue[0]], [xy_red[1], xy_blue[1]], c=['r', 'b'])
+    ax.set_title('Predicted locations of agents')
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_xlim(0, size + 1)
+    ax.set_ylim(size + 1, 0)
+    fig.canvas.draw()
+    plt.pause(0.0001)
 
 
 def run_agent(env, agent, epsilon_start=0.95, epsilon_decay=0.995,
@@ -46,17 +84,14 @@ def run_agent(env, agent, epsilon_start=0.95, epsilon_decay=0.995,
     R = []  # keep track of rewards
     epsilon = epsilon_start  # initialize epsilon
     for i_episode in range(n_episodes):  # loop over episodes
-
         # add element to rewards list
         R.append(0)
 
         # reset environment, create first observation
         end, reward, state_img = env.reset()
         old_loc_red, old_loc_blue = get_locations(state_img)
-        old_state = aggregator.aggregate(old_loc_red[0], old_loc_red[1],
-                                         old_loc_red[0], old_loc_red[1],
-                                         old_loc_blue[0], old_loc_red[1],
-                                         old_loc_blue[0], old_loc_red[1])
+        old_state = aggregator.aggregate(old_loc_red, old_loc_red,
+                                         old_loc_blue, old_loc_blue)
         while not end:
             # choose an action
             if random.random() < epsilon:
@@ -67,20 +102,18 @@ def run_agent(env, agent, epsilon_start=0.95, epsilon_decay=0.995,
                 action = agent.step(end, reward, old_state)
 
             for _ in range(locator.cooldown_time + 1):
-                # do action, get reward, and a new observation for the next round
+                # do action, get reward and a new observation for the next round
                 end, reward, state_img = env.step(action)
                 new_loc_red, new_loc_blue = get_locations(state_img)
+                plot_locations(state_img, new_loc_red, new_loc_blue)
 
-            new_state = aggregator.aggregate(old_loc_red[0], old_loc_red[1],
-                                             new_loc_red[0], new_loc_red[1],
-                                             old_loc_blue[0], old_loc_red[1],
-                                             new_loc_blue[0], new_loc_red[1])
-            print(new_state)
+            new_state = aggregator.aggregate(old_loc_red, new_loc_red,
+                                             old_loc_blue, new_loc_blue)
 
             if train:  # adjust agent model's parameters (training step)
                 agent.train(end, action, old_state, reward, new_state)
 
-            # update state variable
+            # update state and locations variables
             old_state = new_state
             old_loc_red, old_loc_blue = new_loc_red, new_loc_blue
 
@@ -97,13 +130,18 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     size = 64
-    locator = AgentLocator(cooldown_time=0,
+    locator = AgentLocator(cooldown_time=1,
                            minimum_agent_area=10,
                            minimum_agent_area_overlap=4,
                            blue_marker_thresh=2,
                            red_marker_thresh=2)
     aggregator = Aggregator(size, 0.02*(locator.cooldown_time + 1))
     environment = Neurosmash.Environment(size=size, timescale=10)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    fig.show()
+    fig.canvas.draw()
 
     for ag in args.agents:
         if ag == 'PG':
