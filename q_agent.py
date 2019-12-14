@@ -50,7 +50,7 @@ class ReplayMemory(object):
 
         Args:
             end       = [bool] whether the episode has finished
-            action    = [int] action as number in the range [0, env.n_action)
+            action    = [int] action as number in the range [0, num_actions)
             old_state = [object] previous state of the environment
             reward    = [int] reward received after doing action in old_state
             new_state = [object] the state of the environment after doing
@@ -59,15 +59,15 @@ class ReplayMemory(object):
         # determine whether n transitions are aggregated this time step
         n_transitions = len(self.transitions) > (self.n - 1) * 4
         if not n_transitions:
-            # add latest transition to incomplete transitions
+            # add latest transition to incomplete transition list
             self.transitions[-1:] = [end, action, old_state, reward, new_state]
         else:
-            # add extra transitions at end of episode
+            # add extra transition lists at end of episode
             for _ in range(1 + end * (self.n - 1)):
-                # add latest transition to almost complete transitions
+                # add latest transition to almost complete transition list
                 self.transitions[-1:] = [end, action, old_state, reward, new_state]
 
-                # add latest n transitions to memory
+                # add latest transition list to memory
                 if len(self.memory) < self.capacity:
                     self.memory.append(None)
                 self.memory[self.position] = self.transitions
@@ -76,7 +76,7 @@ class ReplayMemory(object):
                 self.position = (self.position + 1) % self.capacity
                 self.transitions = self.transitions[-(self.n * 4 - 3):]
 
-        if end:
+        if end:  # reset transition list
             self.transitions = []
 
     def sample(self, batch_size):
@@ -107,23 +107,23 @@ class DDQN(nn.Module):
         fc2v    = [nn.Module] output linear layer from hidden value layer
     """
 
-    def __init__(self, n_in, n_hidden, n_out, p=0.5):
+    def __init__(self, num_in, num_hidden, num_out, p=0.5):
         """Initializes the DDQN.
 
         Args:
-            n_in     = [int] number of input units
-            n_hidden = [int] number of hidden units in linear layers
-                             between input and advantage layer and
-                             between input and value layer
-            n_out    = [int] number of output units
-            p        = [float] probability for Dropout layers
+            num_in     = [int] number of input units
+            num_hidden = [int] number of hidden units in linear layers
+                               between input and advantage layer and
+                               between input and value layer
+            num_out    = [int] number of output units
+            p          = [float] probability for Dropout layers
         """
         super(DDQN, self).__init__()
-        self.fc1a = nn.Linear(n_in, n_hidden, bias=False)
-        self.fc1v = nn.Linear(n_in, n_hidden, bias=False)
+        self.fc1a = nn.Linear(num_in, num_hidden, bias=False)
+        self.fc1v = nn.Linear(num_in, num_hidden, bias=False)
         self.dropout = nn.Dropout(p=p)
-        self.fc2a = nn.Linear(n_hidden, n_out, bias=False)
-        self.fc2v = nn.Linear(n_hidden, 1, bias=False)
+        self.fc2a = nn.Linear(num_hidden, num_out, bias=False)
+        self.fc2v = nn.Linear(num_hidden, 1, bias=False)
 
     def forward(self, x):
         ha = self.dropout(F.relu(self.fc1a(x)))
@@ -132,7 +132,7 @@ class DDQN(nn.Module):
         a = self.fc2a(ha)
         v = self.fc2v(hv)
 
-        return v + a - a.mean(dim=-1)
+        return v + a - a.mean(dim=-1, keepdim=True)
 
 
 class QAgent(Neurosmash.Agent):
@@ -141,9 +141,9 @@ class QAgent(Neurosmash.Agent):
     Attributes:
         policy_net = [nn.Module] DDQN that is updated every transition
         target_net = [nn.Module] DDQN that is used to retrieve the Q values
-        n_obs      = [int] number of elements in DDQN input vector
+        num_obs    = [int] number of elements in DDQN input vector
         optimizer  = [Optimizer] optimizer used to train the model
-        criterion  = [nn.Module] the loss of the model
+        criterion  = [nn.Module] the loss function of the model
         y          = [float] the gamma parameter for Q learning
         memory     = [ReplayMemory] memory to randomly sample state transitions
         batch_size = [int] the batch size in one update step
@@ -152,19 +152,19 @@ class QAgent(Neurosmash.Agent):
         n          = [int] number of transitions used for N-step DDQN
     """
 
-    def __init__(self, n_obs, n_actions):
+    def __init__(self, num_obs, num_actions):
         """Initializes the agent.
 
         Args:
-            n_obs     = [int] number of elements in state vector
-            n_actions = [int] number of possible actions in environment
+            num_obs     = [int] number of elements in DDQN input vector
+            num_actions = [int] number of possible actions in environment
         """
         # setup the policy and target neural networks
-        self.policy_network = DDQN(n_obs, 64, n_actions)
-        self.target_network = DDQN(n_obs, 64, n_actions)
+        self.policy_network = DDQN(num_obs, 64, num_actions)
+        self.target_network = DDQN(num_obs, 64, num_actions)
         self.target_network.load_state_dict(self.policy_network.state_dict())
         self.target_network.eval()
-        self.n_obs = n_obs
+        self.n_obs = num_obs
 
         # setup an optimizer
         self.optimizer = Adam(self.policy_network.parameters(), lr=4e-5)
@@ -192,10 +192,10 @@ class QAgent(Neurosmash.Agent):
         Args:
             end    = [bool] whether the episode has finished
             reward = [int] reward received after doing previous action
-            state = [torch.Tensor] current state of the environment
+            state  = [torch.Tensor] current state of the environment
 
         Returns [int]:
-            The action encoded as a number in the range [0, n_actions).
+            The action encoded as a number in the range [0, num_actions).
         """
         # apply q-learning neural network to get q-value estimation
         Q = self.policy_network(state)
@@ -206,16 +206,17 @@ class QAgent(Neurosmash.Agent):
         return action
 
     def train(self, end, action, old_state, reward, new_state):
-        """
-        Trains the agent based on last action and state and new reward and state.
+        """Trains agent based on four things: the old state, the action
+           performed in the old state, the reward received after doing
+           that action in the old state and the resulting new state.
 
         Args:
             end       = [bool] whether the episode has finished
-            action    = [int] action as number in the range [0, env.n_action)
+            action    = [int] action as number in the range [0, num_actions)
             old_state = [object] previous state of the environment
             reward    = [int] reward received after doing action in old_state
             new_state = [object] the state of the environment after doing
-                                action in old_state
+                                 action in old_state
         """
         self.memory.push(end, action, old_state, reward, new_state)
 
@@ -226,14 +227,11 @@ class QAgent(Neurosmash.Agent):
         minibatch = self.memory.sample(self.batch_size)
 
         # unpack minibatch
-        ends_batch = torch.zeros((self.batch_size, self.n, 1)).float()
+        ends_batch = torch.tensor(minibatch[:-1:4], dtype=torch.float).t().unsqueeze(2)
         action_batch = torch.tensor(minibatch[1]).unsqueeze(1)
         old_state_batch = torch.stack(minibatch[2])
-        rewards_batch = torch.zeros((self.batch_size, self.n, 1))
+        rewards_batch = torch.tensor(minibatch[3:-1:4], dtype=torch.float).t().unsqueeze(2)
         new_state_batch = torch.stack(minibatch[-1])
-        for i in range(self.n):
-            ends_batch[:, i, 0] = torch.tensor(minibatch[i * 4])
-            rewards_batch[:, i, 0] = torch.tensor(minibatch[i * 4 + 3])
 
         # compute predicted Q values on old states
         Q_pred = self.policy_network(old_state_batch).gather(1, action_batch)
