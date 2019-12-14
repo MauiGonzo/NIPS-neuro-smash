@@ -132,7 +132,7 @@ class DDQN(nn.Module):
         a = self.fc2a(ha)
         v = self.fc2v(hv)
 
-        return v + a - a.mean()
+        return v + a - a.mean(dim=-1)
 
 
 class QAgent(Neurosmash.Agent):
