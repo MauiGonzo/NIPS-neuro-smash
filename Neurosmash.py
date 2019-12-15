@@ -3,8 +3,8 @@ import socket
 from PIL import Image
 
 class Agent:
-    def __init__(self):
-        pass
+    def __init__(self, neurosmash_runner):
+        self.neurosmash_runner = neurosmash_runner
 
     def step(self, end, reward, state):
         # return 0 # nothing
