@@ -1,33 +1,19 @@
-import argparse
-
 import numpy as np
 import socket
-
-from tqdm import tqdm
 from PIL import Image
 
-
 class Agent:
-    def __init__(self, neurosmash_runner, args):
-        self.neurosmash_runner = neurosmash_runner
-        self.args = args
+    def __init__(self):
+        pass
 
-    def step(self, end, reward, state, blue_hist, red_hist):
+    def step(self, end, reward, state):
         # return 0 # nothing
         # return 1 # left
         # return 2 # right
-        return   0 # random
-
-    def run(self):
-        for i in tqdm(range(self.neurosmash_runner.args.rounds)):
-            self.neurosmash_runner.run_round(self)
+        return   3 # random
 
     def train(self, end, action, old_state, reward, new_state):
         pass
-
-    @classmethod
-    def define_args(cls, parser: argparse.ArgumentParser):
-        parser.add_argument('-rounds', type=int, required=False)
 
 class Environment:
     def __init__(self, ip = "127.0.0.1", port = 13000, size = 768, timescale = 1):
@@ -39,7 +25,7 @@ class Environment:
 
         self.client.connect((ip, port))
 
-        self.n_actions = 3
+        self.num_actions = 3
 
     def reset(self):
         self._send(1, 0)
@@ -57,7 +43,7 @@ class Environment:
         data = self.client.recv(2 + 3 * self.size ** 2, socket.MSG_WAITALL)
         end = data[0]
         if end:
-            reward = data[1]
+            reward = (data[1] - 5) * 2
         else:
             reward = 0.1
         state = [data[i] for i in range(2, len(data))]

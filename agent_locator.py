@@ -18,7 +18,7 @@ SAVE_DIFFICULT = False
 # else:
 #     logging.basicConfig(level=logging.WARNING)
 
-background = np.array(Image.open('background_64.png'))[:, :, :3]
+background = np.array(Image.open('data/background_64.png'))[:, :, :3]
 
 red = np.array([151, 106, 1079])
 blue = np.array([120, 128, 163])
@@ -171,6 +171,7 @@ class AgentLocator(object):
 
         self.errored = False
         self.frame_counter = 0
+        self.size = 64
 
     def update_agent_locations(self, state_img: np.ndarray):
         """Update the blue and red agents location based on a stage image
@@ -298,6 +299,21 @@ class AgentLocator(object):
                 raise ValueError()
             else:
                 self._update_agent_locations_vel()
+
+    def get_locations(self, state_img):
+        """Determine the x and y pixel coordinates of the red and blue agents.
+
+        Args:
+            state_img = [ndarray] current state of environment as NumPy ndarray
+
+        Returns [(x_red, y_red), (x_blue, y_blue)]:
+            The x and y pixel coordinates of the red and blue agents
+            as a tuple of NumPy ndarrays.
+        """
+        state = np.array(state_img).reshape(self.size, self.size, 3)
+
+        self.update_agent_locations(state)
+        return self.red_agent.pos, self.blue_agent.pos
 
     def _update_agent_locations_vel(self):
         """
