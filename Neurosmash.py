@@ -1,19 +1,33 @@
+import argparse
+
 import numpy as np
 import socket
+
+from tqdm import tqdm
 from PIL import Image
 
-class Agent:
-    def __init__(self, neurosmash_runner):
-        self.neurosmash_runner = neurosmash_runner
 
-    def step(self, end, reward, state):
+class Agent:
+    def __init__(self, neurosmash_runner, args):
+        self.neurosmash_runner = neurosmash_runner
+        self.args = args
+
+    def step(self, end, reward, state, blue_hist, red_hist):
         # return 0 # nothing
         # return 1 # left
         # return 2 # right
-        return   3 # random
+        return   0 # random
+
+    def run(self):
+        for i in tqdm(range(self.neurosmash_runner.args.rounds)):
+            self.neurosmash_runner.run_round(self)
 
     def train(self, end, action, old_state, reward, new_state):
         pass
+
+    @classmethod
+    def define_args(cls, parser: argparse.ArgumentParser):
+        parser.add_argument('-rounds', type=int, required=False)
 
 class Environment:
     def __init__(self, ip = "127.0.0.1", port = 13000, size = 768, timescale = 1):
