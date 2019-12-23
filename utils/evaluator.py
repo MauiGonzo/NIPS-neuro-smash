@@ -1,13 +1,32 @@
 import torch
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
 from utils.transformer import Transformer
-from cnn import ConvNet
+from cnn import TwoCNNsLocator
 import Neurosmash
 
 
-def plot_locations(environment, transformer, state, xy_red, xy_blue):
+# settings for pyplot
+matplotlib.use('tkagg')
+plt.ion()
+
+# empty figures for location prediction
+fig_locations = None
+ax_locations = None
+state_img = None
+red_location = None
+blue_location = None
+
+# empty figures for rewards
+fig_rewards = None
+ax_rewards = None
+rewards_plot = None
+
+
+def plot_locations(environment, transformer,
+                   state, xy_red, xy_blue, perspective):
     """Plots the given locations of the agents on the
        given state image of the environment.
 
@@ -17,42 +36,37 @@ def plot_locations(environment, transformer, state, xy_red, xy_blue):
         state       = [[int]] current state of the environment
         xy_red      = [int] x and y pixel coordinates of red agent
         xy_blue     = [int] x and y pixel coordinates of blue agent
+        perspective = [bool] whether to perspective transform the state image
     """
-    image = transformer.perspective(environment.state2image(state))
+    global fig_locations
+    global ax_locations
+    global state_img
+    global red_location
+    global blue_location
 
-    ax.clear()
-    ax.imshow(image, extent=(0.5, transformer.size + 0.5,
-                             transformer.size + 0.5, 0.5))
-    ax.scatter([xy_red[0], xy_blue[0]], [xy_red[1], xy_blue[1]], c=['r', 'b'])
-    ax.set_title('Predicted locations of agents')
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_xlim(0, transformer.size + 1)
-    ax.set_ylim(transformer.size + 1, 0)
+    image = environment.state2image(state)
+    if perspective:
+        image = transformer.perspective(image)
+
+    if not fig_locations:
+        fig_locations = plt.figure()
+        ax_locations = fig_locations.add_subplot(1, 1, 1)
+        ax_locations.set_title('Predicted locations of agents')
+        ax_locations.set_xlabel('x')
+        ax_locations.set_ylabel('y')
+        state_img = ax_locations.imshow(np.zeros((1, 1, 3)))
+        red_location = ax_locations.scatter(0, 0, c='r')
+        blue_location = ax_locations.scatter(0, 0, c='b')
+
+    state_img.set_data(image)
+    state_img.set_extent((0.5, transformer.size + 0.5,
+                          transformer.size + 0.5, 0.5))
+    red_location.set_offsets(xy_red)
+    blue_location.set_offsets(xy_blue)
+    ax_locations.set_xlim(0, transformer.size + 1)
+    ax_locations.set_ylim(transformer.size + 1, 0)
+    plt.draw()
     plt.pause(0.001)
-
-
-def evaluate_locations(cnn_red, cnn_blue, num_episodes=10):
-    """Evaluate the convolutional neural network on the real environment.
-
-    Args:
-        cnn_red      = [nn.Module] the convolutional neural network that
-                                   predicts the location of the red agent
-        cnn_blue     = [nn.Module] the convolutional neural network that
-                                   predicts the location of the blue agent
-        num_episodes = [int] number of episodes to evaluate
-    """
-    while num_episodes > 0:
-        end, reward, state = environment.reset()
-        num_episodes -= 1
-
-        while not end:
-            action = agent.step(end, reward, state)
-            end, reward, state = environment.step(action)
-
-            xy_red = cnn_red(state)
-            xy_blue = cnn_blue(state)
-            plot_locations(transformer, environment, state, xy_red, xy_blue)
 
 
 def plot_rewards(rewards, window=10):
@@ -61,29 +75,57 @@ def plot_rewards(rewards, window=10):
     Args:
         rewards = [[float]] list of sum of rewards for each episode
         window  = [int] number of episode rewards to take the average of
-
-    Returns [float]:
-        Latest smoothed total episode reward.
     """
+    global fig_rewards
+    global ax_rewards
+    global rewards_plot
+
     if len(rewards) < window:
-        return 0
+        return
 
     rewards_smoothed = []
     for i in range(len(rewards) - window + 1):
         rewards_smoothed.append(np.mean(rewards[i:i + window]))
 
-    ax.clear()
-    ax.plot(np.arange(window, len(rewards) + 1), rewards_smoothed)
-    ax.set_title('Smoothed episode rewards')
-    ax.set_xlabel('Episode')
-    ax.set_ylabel(f'Average reward in previous {window} episodes')
+    if not fig_rewards:
+        fig_rewards = plt.figure()
+        ax_rewards = fig_rewards.add_subplot(1, 1, 1)
+        ax_rewards.set_title('Smoothed episode rewards')
+        ax_rewards.set_xlabel('Episode')
+        rewards_plot = ax_rewards.plot(0)[0]
+
+    episodes = np.arange(window, len(rewards) + 1)
+    rewards_plot.set_data(episodes, rewards_smoothed)
+    ax_rewards.set_ylabel(f'Average reward in previous {window} episodes')
+    ax_rewards.set_xlim(1, len(rewards))
+    ax_rewards.set_ylim(min(rewards_smoothed), max(rewards_smoothed))
+    plt.draw()
     plt.pause(0.001)
 
-    return rewards_smoothed[-1]
 
+def evaluate_locations(agent_locator, num_episodes=10):
+    """Evaluate the agent locator on the real environment.
 
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
+    Args:
+        agent_locator = [object] determines x and y pixel coordinates of agents
+        num_episodes  = [int] number of episodes to evaluate
+    """
+    rewards = []
+    while num_episodes > 0:
+        end, reward, state = environment.reset()
+        rewards.append(0)
+        num_episodes -= 1
+
+        while not end:
+            action = agent.step(end, reward, state)
+            end, reward, state = environment.step(action)
+
+            xy_red, xy_blue = agent_locator.get_locations(state)
+            plot_locations(environment, transformer, state,
+                           xy_red, xy_blue, True)
+
+            rewards[-1] += reward
+        plot_rewards(rewards, window=2)
 
 
 if __name__ == '__main__':
@@ -96,15 +138,10 @@ if __name__ == '__main__':
     environment = Neurosmash.Environment(size=size, timescale=timescale)
     agent = Neurosmash.Agent()
 
-    transformer = Transformer(size, bg_file_name=
-                                      f'{data_dir}background_transposed_64.png')
+    transformer = Transformer(
+        size,
+        bg_file_name=f'{data_dir}background_transposed_64.png'
+    )
+    agent_locator = TwoCNNsLocator(environment, transformer, models_dir, device)
 
-    cnn_red = ConvNet(environment, transformer, device)
-    cnn_red.load_state_dict(torch.load(f'{models_dir}cnn_red.pt'))
-    cnn_red.eval()
-
-    cnn_blue = ConvNet(environment, transformer, device)
-    cnn_blue.load_state_dict(torch.load(f'{models_dir}cnn_blue.pt'))
-    cnn_blue.eval()
-
-    evaluate_locations(cnn_red, cnn_blue)
+    evaluate_locations(agent_locator, num_episodes=100)

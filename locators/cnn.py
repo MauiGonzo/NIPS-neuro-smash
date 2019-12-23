@@ -108,8 +108,9 @@ class TwoCNNsLocator(object):
        Neural Networks.
 
     Attributes:
-        cnn_red    = [nn.Module] CNN that determines location of red agent
-        cnn_blue   = [nn.Module] CNN that determines location of blue agent
+        cnn_red     = [nn.Module] CNN that determines location of red agent
+        cnn_blue    = [nn.Module] CNN that determines location of blue agent
+        perspective = [bool] whether to perspective transform the state image
     """
 
     def __init__(self, environment, transformer,
@@ -131,6 +132,8 @@ class TwoCNNsLocator(object):
         self.cnn_blue = ConvNet(environment, transformer, device=device)
         self.cnn_blue.load_state_dict(torch.load(f'{models_dir}cnn_blue.pt'))
         self.cnn_blue.eval()
+
+        self.perspective = True
 
     def get_locations(self, state_img):
         """Determine the x and y pixel coordinates of the red and blue agents.

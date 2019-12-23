@@ -1,7 +1,7 @@
 import torch
 from torch.optim import Adam
 
-from cnn import ConvNet
+from locators.cnn import ConvNet
 from utils.transformer import Transformer
 from utils.dataloader import load_data
 import Neurosmash

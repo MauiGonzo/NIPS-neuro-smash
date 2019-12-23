@@ -4,12 +4,8 @@
 # Niels, Roel, Maurice
 import logging
 
-import matplotlib
-matplotlib.use('tkagg')
-#
+
 import argparse
-import platform
-import subprocess
 import random
 
 import torch
@@ -18,17 +14,17 @@ from agents.chase_agent import ChaseAgent
 from agents.neat_agent import NeatAgent
 from agents.pg_agent import PGAgent
 from agents.q_agent import QAgent
-from agent_locator import AgentLocator
-from cnn import TwoCNNsLocator
+from locators.agent_locator import AgentLocator
+from locators.cnn import TwoCNNsLocator
 from utils.transformer import Transformer
 from utils.aggregator import Aggregator
 from utils.evaluator import plot_locations, plot_rewards
 import Neurosmash
 
-ip = '127.0.0.1' # Ip address that the TCP/IP interface listens to
-port = 13000  # Port number that the TCP/IP interface listens to
-size = 64  # Please check the Updates section above for more details
-timescale = 10  # Please check the Updates section above for more details
+ip = '127.0.0.1'  # IP address that the TCP/IP interface listens to
+port = 13000  # port number that the TCP/IP interface listens to
+size = 64  # width and height pixels of environment
+timescale = 10  # number of timesteps per action
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 data_dir = 'data/'
 models_dir = 'models/'
@@ -53,21 +49,21 @@ def run_agent(env, agent, agent_locator, transformer, aggregator,
         num_episodes  = [int] number of episodes the agent will learn for
         train         = [bool] whether to update the agent's model's parameters
 
-    Returns [int, bool]:
+    Returns [(int, bool)]:
         Number of steps in the last episode and whether the red agent was
         victorious in said episode.
     """
-    R = []  # keep track of rewards
+    rewards = []
     epsilon = epsilon_start  # initialize epsilon
     for i_episode in range(num_episodes):  # loop over episodes
-        # add element to rewards list
-        R.append(0)
 
         # reset environment, create first observation
         end, reward, state_img = env.reset()
         old_loc_red, old_loc_blue = agent_locator.get_locations(state_img)
         old_state = aggregator.aggregate(old_loc_red, old_loc_red,
                                          old_loc_blue, old_loc_blue)
+
+        rewards.append(reward)
         num_steps = 0
         while not end:
             # choose an action
@@ -80,12 +76,13 @@ def run_agent(env, agent, agent_locator, transformer, aggregator,
 
             # do action, get reward and a new observation for the next round
             end, reward, state_img = env.step(action)
+            rewards[-1] += reward
             num_steps += 1
 
             new_loc_red, new_loc_blue = agent_locator.get_locations(state_img)
-            if args.b_plot:
-                plot_locations(transformer, env, state_img,
-                               new_loc_red, new_loc_blue)
+            if args.p_plot:
+                plot_locations(env, transformer, state_img, new_loc_red,
+                               new_loc_blue, agent_locator.perspective)
             new_state = aggregator.aggregate(old_loc_red, new_loc_red,
                                              old_loc_blue, new_loc_blue)
 
@@ -96,9 +93,6 @@ def run_agent(env, agent, agent_locator, transformer, aggregator,
             old_state = new_state
             old_loc_red, old_loc_blue = new_loc_red, new_loc_blue
 
-            # track the rewards
-            R[i_episode] += reward
-
             # decay epsilon parameter
             epsilon = max(epsilon_min, epsilon * epsilon_decay)
 
@@ -107,8 +101,8 @@ def run_agent(env, agent, agent_locator, transformer, aggregator,
         elif reward == 10:
             print('--- WINNER ---')
 
-        if args.b_plot:
-            average_episode_reward = plot_rewards(R)
+        if args.r_plot:
+            plot_rewards(rewards)
 
     win = reward == 10
     return num_steps, win
@@ -119,19 +113,16 @@ if __name__ == '__main__':
     agents = ['PG', 'PG_run', 'Q', 'Q_run', 'NEAT', 'random', 'chase']
     parser.add_argument('agent', type=str, choices=agents,
                         help=f'agent names to train, choose {agents}')
-    parser.add_argument('--plot-positions', dest='b_plot', action='store_true',
-                        help='plot the positions of the agents')
     parser.add_argument('agent_locator', type=str, choices=['TwoCNN', 'Vision'],
-                        help='find agent positions, choose <TwoCNN, Vision>')
+                        help='finds agent positions, choose <TwoCNN, Vision>')
+    parser.add_argument('--plot-positions', dest='p_plot', action='store_true',
+                        help='plot the positions of the agents')
+    parser.add_argument('--plot-rewards', dest='r_plot', action='store_true',
+                        help='plot the smoothed rewards of the episodes')
     parser.add_argument('--save-difficult', dest='save_difficult',
                         action='store_true')
     parser.add_argument('-save-diff-prob', dest='save_diff_prob', type=float)
     args = parser.parse_args()
-
-    if platform.system() == 'Darwin':
-        p = subprocess.Popen(['open', 'Mac.app'], stderr=subprocess.PIPE)
-        while p.poll() is None:
-            pass
 
     connected = False
     while not connected:
@@ -204,10 +195,8 @@ if __name__ == '__main__':
     elif args.agent == 'random':
         print(f'Running agent: {args.agent}')
         random_agent = Neurosmash.Agent()
-        run_agent(environment, random_agent,
+        run_agent(environment, random_agent, agent_locator,
+                  transformer, aggregator,
                   epsilon_start=0, epsilon_min=0, train=False)
     else:  # current agent not known
         print(f'Unknown agent: {args.agent}')
-
-    if platform.system() in ['Darwin']:
-        p.terminate()

@@ -126,6 +126,7 @@ class AgentLocator(object):
     Attributes:
         blue_agent (Agent): The blue agent position and velocity
         red_agent (Agent): The red agent position and velocity
+        perspective (bool): whether to perspective transform the state image
     """
 
     def __init__(self, use_dilation: bool = False, use_erosion: bool = False, use_overlap_label_dilation: bool = True,
@@ -172,6 +173,7 @@ class AgentLocator(object):
         self.errored = False
         self.frame_counter = 0
         self.size = 64
+        self.perspective = False
 
     def update_agent_locations(self, state_img: np.ndarray):
         """Update the blue and red agents location based on a stage image
