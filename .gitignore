@@ -1,4 +1,2 @@
 .idea/
-__pycache__/
-agents/__pycache__
-utils/__pycache__
+*__pycache__/
