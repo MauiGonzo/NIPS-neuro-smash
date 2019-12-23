@@ -25,7 +25,7 @@ class Environment:
 
         self.client.connect((ip, port))
 
-        self.n_actions = 3
+        self.num_actions = 3
 
     def reset(self):
         self._send(1, 0)
@@ -43,7 +43,7 @@ class Environment:
         data = self.client.recv(2 + 3 * self.size ** 2, socket.MSG_WAITALL)
         end = data[0]
         if end:
-            reward = data[1]
+            reward = (data[1] - 5) * 2
         else:
             reward = 0.1
         state = [data[i] for i in range(2, len(data))]
