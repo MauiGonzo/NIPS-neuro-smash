@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from utils.transformer import Transformer
-from cnn import TwoCNNsLocator
+from locators.cnn import TwoCNNsLocator
 import Neurosmash
 
 

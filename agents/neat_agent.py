@@ -16,7 +16,7 @@ class NeatAgent(Neurosmash.Agent):
         transformer   = [Transformer] object that transforms images
         aggregator    = [Aggregator] object that aggregates a number of stats
                                      given the positions of the agents
-        run_agent     = [fn] function that runs a round in the environment
+        run_agent     = [fn] function that runs an episode in the environment
         net           = [RecurrentNetwork] ANN that implements agent's policy
         p             = [Population] NEAT population in the current generation
     """

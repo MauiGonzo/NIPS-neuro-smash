@@ -1,10 +1,3 @@
-#!/usr/bin/python
-#
-# neurosmasher trainer
-# Niels, Roel, Maurice
-import logging
-
-
 import argparse
 import random
 
@@ -55,8 +48,7 @@ def run_agent(env, agent, agent_locator, transformer, aggregator,
     """
     rewards = []
     epsilon = epsilon_start  # initialize epsilon
-    for i_episode in range(num_episodes):  # loop over episodes
-
+    for i_episode in range(num_episodes):
         # reset environment, create first observation
         end, reward, state_img = env.reset()
         old_loc_red, old_loc_blue = agent_locator.get_locations(state_img)
@@ -76,26 +68,27 @@ def run_agent(env, agent, agent_locator, transformer, aggregator,
 
             # do action, get reward and a new observation for the next round
             end, reward, state_img = env.step(action)
-            rewards[-1] += reward
-            num_steps += 1
-
             new_loc_red, new_loc_blue = agent_locator.get_locations(state_img)
-            if args.p_plot:
-                plot_locations(env, transformer, state_img, new_loc_red,
-                               new_loc_blue, agent_locator.perspective)
             new_state = aggregator.aggregate(old_loc_red, new_loc_red,
                                              old_loc_blue, new_loc_blue)
+
+            if args.p_plot:  # plot predicted locations of agents
+                plot_locations(env, transformer, state_img, new_loc_red,
+                               new_loc_blue, agent_locator.perspective)
 
             if train:  # adjust agent model's parameters (training step)
                 agent.train(end, action, old_state, reward, new_state)
 
-            # update state and locations variables
+            # bookkeeping
             old_state = new_state
             old_loc_red, old_loc_blue = new_loc_red, new_loc_blue
+            rewards[-1] += reward
+            num_steps += 1
 
             # decay epsilon parameter
             epsilon = max(epsilon_min, epsilon * epsilon_decay)
 
+        # determine whether the agent lost or won
         if reward == -10:
             print('--- LOSER ---')
         elif reward == 10:
@@ -104,11 +97,11 @@ def run_agent(env, agent, agent_locator, transformer, aggregator,
         if args.r_plot:
             plot_rewards(rewards)
 
-    win = reward == 10
-    return num_steps, win
+    return num_steps, reward == 10
 
 
 if __name__ == '__main__':
+    # process the command options
     parser = argparse.ArgumentParser()
     agents = ['PG', 'PG_run', 'Q', 'Q_run', 'NEAT', 'random', 'chase']
     parser.add_argument('agent', type=str, choices=agents,
@@ -124,6 +117,7 @@ if __name__ == '__main__':
     parser.add_argument('-save-diff-prob', dest='save_diff_prob', type=float)
     args = parser.parse_args()
 
+    # connect to environment via TCP/IP
     connected = False
     while not connected:
         try:
@@ -132,29 +126,28 @@ if __name__ == '__main__':
         except ConnectionRefusedError:
             pass
 
+    # initialize the transformer, aggregator, and agent locator
     transformer = Transformer(size, bg_file_name=f'{data_dir}background_64.png')
     aggregator = Aggregator(size, device=device)
-
     if args.agent_locator == 'TwoCNN':
         agent_locator = TwoCNNsLocator(environment, transformer,
                                        models_dir=models_dir, device=device)
-    elif args.agent_locator == 'Vision':
+    else:  # args.agent_locator == 'Vision'
         agent_locator = AgentLocator(cooldown_time=0, minimum_agent_area=4,
                                      minimum_agent_area_overlap=3,
                                      save_difficult=args.save_difficult,
                                      save_difficult_prob=args.save_diff_prob)
-    else:
-        print(f'Agent locator unknown: {args.agent_locator}')
 
+    # run, train, or process the picked agent
     if args.agent == 'PG':
-        print(f'Training agent: {args.agent}')
+        print('Training Policy Gradient agent')
         pg_agent = PGAgent(aggregator.num_obs, environment.num_actions,
                            device=device)
         run_agent(environment, pg_agent, agent_locator,
                   transformer, aggregator)
         torch.save(pg_agent.model.state_dict(), f'{models_dir}mlp.pt')
     elif args.agent == 'PG_run':
-        print(f'Running agent: {args.agent}')
+        print('Running Policy Gradient agent')
         pg_agent = PGAgent(aggregator.num_obs, environment.num_actions,
                            device=device)
         pg_agent.model.load_state_dict(torch.load(f'{models_dir}mlp.pt'))
@@ -162,14 +155,8 @@ if __name__ == '__main__':
         run_agent(environment, pg_agent, agent_locator,
                   transformer, aggregator,
                   epsilon_start=0, epsilon_min=0, train=False)
-    elif args.agent == 'NEAT':
-        print(f'Processing agent: {args.agent}')
-        aggregator = Aggregator(size, device=torch.device('cpu'))
-        neat_agent = NeatAgent(environment, agent_locator, transformer,
-                               aggregator, f'{models_dir}NEAT/', run_agent)
-        neat_agent.run()
     elif args.agent == 'Q':
-        print(f'Training agent: {args.agent}')
+        print('Training Q-learning agent')
         q_agent = QAgent(aggregator.num_obs, environment.num_actions,
                          device=device)
         run_agent(environment, q_agent, agent_locator,
@@ -177,7 +164,7 @@ if __name__ == '__main__':
         torch.save(q_agent.policy_network.state_dict(),
                    f'{models_dir}ddqn.pt')
     elif args.agent == 'Q_run':
-        print(f'Running agent: {args.agent}')
+        print('Running Q-learning agent')
         q_agent = QAgent(aggregator.num_obs, environment.num_actions,
                          device=device)
         q_agent.policy_network.load_state_dict(
@@ -186,17 +173,21 @@ if __name__ == '__main__':
         run_agent(environment, q_agent, agent_locator,
                   transformer, aggregator,
                   epsilon_start=0, epsilon_min=0, train=False)
+    elif args.agent == 'NEAT':
+        print('Processing NEAT agent')
+        aggregator = Aggregator(size, device=torch.device('cpu'))
+        neat_agent = NeatAgent(environment, agent_locator, transformer,
+                               aggregator, f'{models_dir}NEAT/', run_agent)
+        neat_agent.run()
     elif args.agent == 'chase':
-        print(f'Running agent: {args.agent}')
+        print('Running chase agent')
         chase_agent = ChaseAgent(aggregator)
         run_agent(environment, chase_agent, agent_locator,
                   transformer, aggregator,
                   epsilon_start=0, epsilon_min=0, train=False)
-    elif args.agent == 'random':
-        print(f'Running agent: {args.agent}')
+    else:  # args.agent == 'random'
+        print('Running random agent')
         random_agent = Neurosmash.Agent()
         run_agent(environment, random_agent, agent_locator,
                   transformer, aggregator,
                   epsilon_start=0, epsilon_min=0, train=False)
-    else:  # current agent not known
-        print(f'Unknown agent: {args.agent}')
