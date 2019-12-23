@@ -116,13 +116,15 @@ def run_agent(env, agent, agent_locator, transformer, aggregator,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('agent', type=str, choices=['PG', 'NEAT'],
-                        help='agent names to train, choose <PG, NEAT>')
+    agents = ['PG', 'PG_run', 'Q', 'Q_run', 'NEAT', 'random', 'chase']
+    parser.add_argument('agent', type=str, choices=agents,
+                        help=f'agent names to train, choose {agents}')
     parser.add_argument('--plot-positions', dest='b_plot', action='store_true',
                         help='plot the positions of the agents')
     parser.add_argument('agent_locator', type=str, choices=['TwoCNN', 'Vision'],
                         help='find agent positions, choose <TwoCNN, Vision>')
-    parser.add_argument('--save-difficult', dest='save_difficult', action='store_true')
+    parser.add_argument('--save-difficult', dest='save_difficult',
+                        action='store_true')
     parser.add_argument('-save-diff-prob', dest='save_diff_prob', type=float)
     args = parser.parse_args()
 
