@@ -15,7 +15,7 @@ import random
 import torch
 
 from agents.chase_agent import ChaseAgent
-from agents.neat_agent2 import NeatAgent
+from agents.neat_agent import NeatAgent
 from agents.pg_agent import PGAgent
 from agents.q_agent import QAgent
 from agent_locator import AgentLocator

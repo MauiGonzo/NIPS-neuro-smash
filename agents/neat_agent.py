@@ -1,106 +1,108 @@
-import argparse
 import os
 import re
-from typing import List
 
 import neat
 import numpy as np
-from six import iteritems
 
-from Neurosmash import Agent
+import Neurosmash
 
 
-class NeatAgent(Agent):
-    def __init__(self, neurosmash_runner, args):
+class NeatAgent(Neurosmash.Agent):
+    """Implements a Neuroevolution of Augmenting Topologies Agent.
+
+    Attributes:
+        environment   = [Environment] the environment in which the agent acts
+        agent_locator = [object] determines x and y pixel coordinates of agents
+        transformer   = [Transformer] object that transforms images
+        aggregator    = [Aggregator] object that aggregates a number of stats
+                                     given the positions of the agents
+        run_agent     = [fn] function that runs a round in the environment
+        net           = [RecurrentNetwork] ANN that implements agent's policy
+        p             = [Population] NEAT population in the current generation
+    """
+
+    def __init__(self, environment, agent_locator, transformer, aggregator,
+                 model_dir, run_agent):
+        """Initializes the agent.
+
+        Args:
+            environment   = [Environment] environment in which the agents act
+            agent_locator = [object] determines pixel coordinates of agents
+            transformer   = [Transformer] object that transforms images
+            aggregator    = [Aggregator] object that aggregates a number of
+                                         stats given the positions of the agents
+            model_dir    = [str] directory where NEAT model will be stored
+            run_agent     = [fn] function that runs a round in the environment
         """
+        super(NeatAgent, self).__init__()
 
-        Parameters
-        ----------
-        neurosmash_runner:
-        """
-        Agent.__init__(self, neurosmash_runner, args)
-        local_dir = os.path.dirname(__file__)
-        config_path = os.path.join(local_dir, 'config-feedforward')
+        self.environment = environment
+        self.agent_locator = agent_locator
+        self.transformer = transformer
+        self.aggregator = aggregator
+        self.run_agent = run_agent
 
-        agent_dir_exists = os.path.isdir(f'agents/{self.args.name}')
+        # sets member that will be the ANN that implements the agent's policy
+        self.net = None
 
-        if not agent_dir_exists or len(list(os.scandir(f'agents/{self.args.name}'))) == 0:
-            if not agent_dir_exists:
-                os.mkdir(f'agents/{self.args.name}')
+        if not os.path.isdir(model_dir):
+            os.makedirs(model_dir)
 
+        if not list(os.scandir(model_dir)):
             config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                                  neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                                 config_path)
+                                 'agents/config-feedforward')
 
-            # Create the population, which is the top-level object for a NEAT run.
-            p = neat.Population(config)
+            # create population, which is the top-level object for a NEAT run
+            self.p = neat.Population(config)
         else:
-            last_checkpoint = max([int(re.findall(r'neat-checkpoint-(\d+)', f.name)[0]) for f in os.scandir(f'agents/{self.args.name}') if
-                     re.match(r'neat-checkpoint-\d+', f.name)])
-            p = neat.Checkpointer.restore_checkpoint(f'agents/{self.args.name}/neat-checkpoint-{last_checkpoint}')
+            checkpoints = []
+            for f in os.scandir(model_dir):
+                if re.match(r'neat-checkpoint-\d+', f.name):
+                    match = re.search(r'neat-checkpoint-(\d+)', f.name).group()
+                    checkpoints.append(int(match))
 
-        # Add a stdout reporter to show progress in the terminal.
-        p.add_reporter(neat.StdOutReporter(True))
-        stats = neat.StatisticsReporter()
-        p.add_reporter(stats)
-        p.add_reporter(neat.Checkpointer(5, filename_prefix=f'agents/{self.args.name}/neat-checkpoint-'))
-        self.p = p
+            # create population, which is the top-level object for a NEAT run
+            last_checkpoint = max(checkpoints)
+            self.p = neat.Checkpointer.restore_checkpoint(
+                f'{model_dir}neat-checkpoint-{last_checkpoint}'
+            )
 
-    @classmethod
-    def define_args(cls, parser: argparse.ArgumentParser):
-        parser.add_argument('-name', type=str)
+        # add a stdout reporter to show progress in the terminal
+        self.p.add_reporter(neat.StdOutReporter(True))
+        self.p.add_reporter(neat.StatisticsReporter())
+        prefix = f'{model_dir}neat-checkpoint-'
+        self.p.add_reporter(neat.Checkpointer(5, filename_prefix=prefix))
 
     def run(self):
-        if not self.args.eval:
-            self.p.run(self.eval_fitness, 100)
-        else:
-            best_won = 0
-
-            for genome_id, genome in list(iteritems(self.p.population)):
-                self.net = neat.nn.RecurrentNetwork.create(genome, self.p.config)
-                avg_steps, avg_won = 0, 0
-
-                for i in range(self.args.rounds):
-                    steps, won = self.neurosmash_runner.run_round(self)
-                    avg_steps += steps
-                    avg_won += won
-
-                avg_steps /= self.args.rounds
-                avg_won /= self.args.rounds
-                if best_won > avg_won:
-                    best_won = avg_won
-                print(f'Avg steps: {avg_steps}')
-                print(f'Avg won: {avg_won}')
-            print(f'Best avg won: {best_won}')
+        self.p.run(self.eval_fitness, 100)
 
     def eval_fitness(self, genomes, config):
         for genome_id, genome in genomes:
             self.net = neat.nn.RecurrentNetwork.create(genome, config)
-            fitnesses = []
+            fitness_list = []
             for i in range(7):
-                steps, won = self.neurosmash_runner.run_round(self)
+                num_steps, won = self.run_agent(
+                    self.environment, self, self.agent_locator,
+                    self.transformer, self.aggregator,
+                    epsilon_start=0, epsilon_min=0, num_episodes=1
+                )
                 if won:
-                    f = -steps
+                    f = -num_steps
                 else:
-                    if steps < 700:
-                        f = -700*5+steps
+                    if num_steps < 700:
+                        f = -700*5+num_steps
                     else:
                         f = -700*3.3
 
-                fitnesses.append(f)
+                fitness_list.append(f)
 
-            genome.fitness = np.mean(fitnesses)
-            print(genome.fitness)
+            genome.fitness = np.mean(fitness_list)
+            print(f'fitness: {genome.fitness}')
 
-    def step(self, end: bool, reward: float, state: List[int], blue: np.ndarray, red: np.ndarray):
-        # hist_indices = [-1]
-        # blue_poses = [blue[i] if len(blue) >= -i else blue[-1] for i in hist_indices]
-        # red_poses = [red[i] if len(red) >= -i else red[-1] for i in hist_indices]
+    def step(self, end, reward, state):
+        state = state.data.numpy()
+        return np.argmax(self.net.activate(state))
 
-        # blue_inp_x, blue_inp_y = zip(*blue_poses)
-        # red_inp_x, red_inp_y = zip(*red_poses)
-        #
-        # inp = np.concatenate([blue_inp_x, blue_inp_y, red_inp_x, red_inp_y])
-        inp = np.array([blue[0], blue[1], red[0], red[1]])/64
-        # print(inp)
-        return np.argmax(self.net.activate(inp))
+    def train(self, end, action, old_state, reward, new_state):
+        pass
