@@ -69,7 +69,7 @@ class NeatAgent(Neurosmash.Agent):
         """Fitness function that computes the fitness for each genome.
 
         Args:
-            genomes = [Genome] network genomes in the current generation
+            genomes = [[(int, Genome)]] network genomes in current generation
             config  = [Config] configuration of the neural network
         """
         for _, genome in genomes:

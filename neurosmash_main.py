@@ -41,8 +41,9 @@ def run_agent(agent, num_episodes=1000, train=True,
         the red agent was victorious.
     """
     rewards = []
-    wins = []
     num_steps = []
+    wins = []
+
     epsilon = epsilon_start  # initialize epsilon
     for i_episode in range(num_episodes):
         # reset environment, create first observation
@@ -85,12 +86,8 @@ def run_agent(agent, num_episodes=1000, train=True,
             epsilon = max(epsilon_min, epsilon * epsilon_decay)
 
         # determine whether the agent lost or won
-        if reward == -10:
-            wins.append(0)
-            print('--- LOSER ---')
-        elif reward == 10:
-            wins.append(1)
-            print('--- WINNER ---')
+        wins.append(reward == 10)
+        print('--- WINNER ---' if reward == 10 else '--- LOSER ---')
 
         if args.r_plot:
             plot_rewards(rewards)
@@ -155,16 +152,14 @@ if __name__ == '__main__':
         q_agent = QAgent(aggregator.num_obs, environment.num_actions,
                          device=device)
         run_agent(q_agent)
-        torch.save(q_agent.policy_network.state_dict(),
-                   f'{models_dir}ddqn.pt')
+        torch.save(q_agent.policy_network.state_dict(), f'{models_dir}ddqn.pt')
     elif args.agent == 'Q_run':
         print('Running Q-learning agent')
         q_agent = QAgent(aggregator.num_obs, environment.num_actions,
                          device=device)
-        q_agent.policy_network.load_state_dict(
-                torch.load(f'{models_dir}ddqn.pt'))
+        q_agent.policy_network.load_state_dict(torch.load(f'{models_dir}ddqn.pt'))
         q_agent.policy_network.eval()
-        run_agent(q_agent, train=False)
+        run_agent(q_agent, train=False, epsilon_start=0, epsilon_min=0)
     elif args.agent == 'NEAT':
         print('Processing NEAT agent')
         neat_agent = NeatAgent(f'{models_dir}NEAT/', run_agent)
@@ -172,10 +167,8 @@ if __name__ == '__main__':
     elif args.agent == 'chase':
         print('Running chase agent')
         chase_agent = ChaseAgent(aggregator)
-        run_agent(chase_agent, train=False,
-                  epsilon_start=0, epsilon_min=0)
+        run_agent(chase_agent, epsilon_start=0, epsilon_min=0)
     else:  # args.agent == 'random'
         print('Running random agent')
         random_agent = Neurosmash.Agent()
-        run_agent(random_agent, train=False,
-                  epsilon_start=0, epsilon_min=0)
+        run_agent(random_agent, epsilon_start=0, epsilon_min=0)
