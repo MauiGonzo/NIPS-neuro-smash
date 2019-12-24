@@ -1,9 +1,11 @@
 import os
 import re
+import glob
 
 import neat
 import numpy as np
 
+from utils.dataloader import natural_key
 import Neurosmash
 
 
@@ -35,7 +37,9 @@ class NeatAgent(Neurosmash.Agent):
         if not os.path.isdir(model_dir):
             os.makedirs(model_dir)
 
-        if not list(os.scandir(model_dir)):
+        prefix = f'{model_dir}neat-checkpoint-'
+        checkpoints = glob.glob(f'{prefix}*')
+        if not checkpoints:
             config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                                  neat.DefaultSpeciesSet, neat.DefaultStagnation,
                                  'agents/config-feedforward')
@@ -43,22 +47,14 @@ class NeatAgent(Neurosmash.Agent):
             # create population, which is the top-level object for a NEAT run
             self.p = neat.Population(config)
         else:
-            checkpoints = []
-            for f in os.scandir(model_dir):
-                if re.match(r'neat-checkpoint-\d+', f.name):
-                    match = re.search(r'neat-checkpoint-(\d+)', f.name).group()
-                    checkpoints.append(int(match))
-
             # create population, which is the top-level object for a NEAT run
-            last_checkpoint = max(checkpoints)
-            self.p = neat.Checkpointer.restore_checkpoint(
-                f'{model_dir}neat-checkpoint-{last_checkpoint}'
-            )
+            checkpoints = sorted(checkpoints, key=natural_key)
+            last_checkpoint = checkpoints[-1]
+            self.p = neat.Checkpointer.restore_checkpoint(last_checkpoint)
 
         # add a stdout reporter to show progress in the terminal
         self.p.add_reporter(neat.StdOutReporter(True))
         self.p.add_reporter(neat.StatisticsReporter())
-        prefix = f'{model_dir}neat-checkpoint-'
         self.p.add_reporter(neat.Checkpointer(5, filename_prefix=prefix))
 
     def run(self):
