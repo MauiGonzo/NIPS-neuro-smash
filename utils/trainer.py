@@ -11,27 +11,24 @@ def criterion(y, t):
     """Computes loss as Euclidean distance from predicted to actual location.
 
     Args:
-        y = [Tensor] predicted x and y coordinates of an agent
-        t = [Tensor] actual x and y coordinates of an agent
+        y = [Tensor] predicted x and y pixel coordinates of an agent
+        t = [Tensor] actual x and y pixel coordinates of an agent
     """
     distances = torch.sqrt((y[:, 0] - t[:, 0]) ** 2 + (y[:, 1] - t[:, 1]) ** 2)
 
     return distances.sum() / len(y)
 
 
-def train_cnns(train_iter, validation_iter, transformer,
-               num_epochs=10, device=torch.device('cpu')):
+def train_cnns(train_iter, validation_iter, num_epochs=100):
     """Trains and evaluates two convolutional neural networks that predict
        the locations of the red and blue agents, respectively.
 
     Args:
         train_iter      = [DataLoader] the training batch iterator
         validation_iter = [DataLoader] the validation batch iterator
-        transformer     = [Transformer] object that transforms images
         num_epochs      = [int] number of times all training data is sampled
-        device          = [torch.device] device to put the model on
 
-    Returns [nn.Module]:
+    Returns [(nn.Module,)]:
         The trained convolutional neural networks.
     """
     # initialize CNNs and optimizers
@@ -79,14 +76,14 @@ if __name__ == '__main__':
 
     environment = Neurosmash.Environment(size=size, timescale=timescale)
 
-    transformer = Transformer(size, bg_file_name=
-                                      f'{data_dir}background_transposed_64.png')
+    transformer = Transformer(
+        size, bg_file_name=f'{data_dir}background_transposed_64.png'
+    )
     data = load_data(transformer, train_split=1.0, test_split=0.0,
                      data_dir=data_dir, device=device)
     train_iter, validation_iter, test_iter = data
 
-    cnn_red, cnn_blue = train_cnns(train_iter, train_iter, transformer,
-                                   num_epochs=100, device=device)
+    cnn_red, cnn_blue = train_cnns(train_iter, train_iter)
 
     torch.save(cnn_red.state_dict(), f'{models_dir}cnn_red.pt')
     torch.save(cnn_blue.state_dict(), f'{models_dir}cnn_blue.pt')

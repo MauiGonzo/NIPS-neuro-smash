@@ -5,6 +5,7 @@ import numpy as np
 
 from utils.transformer import Transformer
 from locators.cnn import TwoCNNsLocator
+from locators.agent_locator import AgentLocator
 import Neurosmash
 
 
@@ -54,17 +55,17 @@ def plot_locations(environment, transformer,
         ax_locations.set_title('Predicted locations of agents')
         ax_locations.set_xlabel('x')
         ax_locations.set_ylabel('y')
+        ax_locations.set_xlim(0, transformer.size + 1)
+        ax_locations.set_ylim(transformer.size + 1, 0)
         state_img = ax_locations.imshow(np.zeros((1, 1, 3)))
+        state_img.set_extent((0.5, transformer.size + 0.5,
+                              transformer.size + 0.5, 0.5))
         red_location = ax_locations.scatter(0, 0, c='r')
         blue_location = ax_locations.scatter(0, 0, c='b')
 
     state_img.set_data(image)
-    state_img.set_extent((0.5, transformer.size + 0.5,
-                          transformer.size + 0.5, 0.5))
     red_location.set_offsets(xy_red)
     blue_location.set_offsets(xy_blue)
-    ax_locations.set_xlim(0, transformer.size + 1)
-    ax_locations.set_ylim(transformer.size + 1, 0)
     plt.draw()
     plt.pause(0.001)
 
@@ -92,29 +93,26 @@ def plot_rewards(rewards, window=10):
         ax_rewards = fig_rewards.add_subplot(1, 1, 1)
         ax_rewards.set_title('Smoothed episode rewards')
         ax_rewards.set_xlabel('Episode')
+        ax_rewards.set_ylabel(f'Average reward in previous {window} episodes')
         rewards_plot = ax_rewards.plot(0)[0]
 
-    episodes = np.arange(window, len(rewards) + 1)
-    rewards_plot.set_data(episodes, rewards_smoothed)
-    ax_rewards.set_ylabel(f'Average reward in previous {window} episodes')
     ax_rewards.set_xlim(1, len(rewards))
-    ax_rewards.set_ylim(min(rewards_smoothed), max(rewards_smoothed))
+    ax_rewards.set_ylim(min(rewards), max(rewards))
+    rewards_plot.set_data(np.arange(window, len(rewards) + 1), rewards_smoothed)
     plt.draw()
     plt.pause(0.001)
 
 
-def evaluate_locations(agent_locator, num_episodes=10):
+def evaluate_locations(num_episodes=10):
     """Evaluate the agent locator on the real environment.
 
     Args:
-        agent_locator = [object] determines x and y pixel coordinates of agents
         num_episodes  = [int] number of episodes to evaluate
     """
     rewards = []
-    while num_episodes > 0:
+    for _ in range(num_episodes):
         end, reward, state = environment.reset()
-        rewards.append(0)
-        num_episodes -= 1
+        rewards.append(reward)
 
         while not end:
             action = agent.step(end, reward, state)
@@ -122,7 +120,7 @@ def evaluate_locations(agent_locator, num_episodes=10):
 
             xy_red, xy_blue = agent_locator.get_locations(state)
             plot_locations(environment, transformer, state,
-                           xy_red, xy_blue, True)
+                           xy_red, xy_blue, agent_locator.perspective)
 
             rewards[-1] += reward
         plot_rewards(rewards, window=2)
@@ -142,6 +140,11 @@ if __name__ == '__main__':
         size,
         bg_file_name=f'{data_dir}background_transposed_64.png'
     )
-    agent_locator = TwoCNNsLocator(environment, transformer, models_dir, device)
 
-    evaluate_locations(agent_locator, num_episodes=100)
+    agent_locator = TwoCNNsLocator(environment, transformer, models_dir, device)
+    evaluate_locations()
+
+    # in locators.agent_locator, set background file name from this file
+    agent_locator = AgentLocator(cooldown_time=0, minimum_agent_area=4,
+                                 minimum_agent_area_overlap=3)
+    evaluate_locations()

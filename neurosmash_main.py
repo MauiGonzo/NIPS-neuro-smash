@@ -23,57 +23,53 @@ data_dir = 'data/'
 models_dir = 'models/'
 
 
-def run_agent(env, agent, agent_locator, transformer, aggregator,
-              epsilon_start=0.95, epsilon_decay=0.995, epsilon_min=0.005,
-              num_episodes=1000, train=True):
+def run_agent(agent, num_episodes=1000, train=True,
+              epsilon_start=0.95, epsilon_decay=0.995, epsilon_min=0.005):
     """Function to run the agent for a given number of episodes.
 
     Args:
-        env           = [Environment] environment in which the agent acts
         agent         = [Agent] agent that selects action given current state
-        agent_locator = [object] determines x and y pixel coordinates of agents
-        transformer   = [Transformer] object that transforms images
-        aggregator    = [Aggregator] object that aggregates a number of stats
-                                     given the positions of the agents
+        num_episodes  = [int] number of episodes the agent will learn for
+        train         = [bool] whether to update the agent's model's parameters
         epsilon_start = [float] starting value for exploration/
                                 exploitation parameter
         epsilon_decay = [float] number signifying how fast epsilon decreases
         epsilon_min   = [float] minimal value for the epsilon parameter
-        num_episodes  = [int] number of episodes the agent will learn for
-        train         = [bool] whether to update the agent's model's parameters
 
-    Returns [(int, bool)]:
-        Number of steps in the last episode and whether the red agent was
-        victorious in said episode.
+    Returns [([int], [bool])]:
+        For each episode, the number of steps in the episode and whether
+        the red agent was victorious.
     """
     rewards = []
+    wins = []
+    num_steps = []
     epsilon = epsilon_start  # initialize epsilon
     for i_episode in range(num_episodes):
         # reset environment, create first observation
-        end, reward, state_img = env.reset()
+        end, reward, state_img = environment.reset()
         old_loc_red, old_loc_blue = agent_locator.get_locations(state_img)
         old_state = aggregator.aggregate(old_loc_red, old_loc_red,
                                          old_loc_blue, old_loc_blue)
 
         rewards.append(reward)
-        num_steps = 0
+        num_steps.append(0)
         while not end:
             # choose an action
             if random.random() < epsilon:
                 # random actions to explore environment (exploration)
-                action = random.randrange(env.num_actions)
+                action = random.randrange(environment.num_actions)
             else:
                 # strictly follow currently learned behaviour (exploitation)
                 action = agent.step(end, reward, old_state)
 
             # do action, get reward and a new observation for the next round
-            end, reward, state_img = env.step(action)
+            end, reward, state_img = environment.step(action)
             new_loc_red, new_loc_blue = agent_locator.get_locations(state_img)
             new_state = aggregator.aggregate(old_loc_red, new_loc_red,
                                              old_loc_blue, new_loc_blue)
 
             if args.p_plot:  # plot predicted locations of agents
-                plot_locations(env, transformer, state_img, new_loc_red,
+                plot_locations(environment, transformer, state_img, new_loc_red,
                                new_loc_blue, agent_locator.perspective)
 
             if train:  # adjust agent model's parameters (training step)
@@ -83,21 +79,23 @@ def run_agent(env, agent, agent_locator, transformer, aggregator,
             old_state = new_state
             old_loc_red, old_loc_blue = new_loc_red, new_loc_blue
             rewards[-1] += reward
-            num_steps += 1
+            num_steps[-1] += 1
 
             # decay epsilon parameter
             epsilon = max(epsilon_min, epsilon * epsilon_decay)
 
         # determine whether the agent lost or won
         if reward == -10:
+            wins.append(0)
             print('--- LOSER ---')
         elif reward == 10:
+            wins.append(1)
             print('--- WINNER ---')
 
         if args.r_plot:
             plot_rewards(rewards)
 
-    return num_steps, reward == 10
+    return num_steps, wins
 
 
 if __name__ == '__main__':
@@ -143,8 +141,7 @@ if __name__ == '__main__':
         print('Training Policy Gradient agent')
         pg_agent = PGAgent(aggregator.num_obs, environment.num_actions,
                            device=device)
-        run_agent(environment, pg_agent, agent_locator,
-                  transformer, aggregator)
+        run_agent(pg_agent)
         torch.save(pg_agent.model.state_dict(), f'{models_dir}mlp.pt')
     elif args.agent == 'PG_run':
         print('Running Policy Gradient agent')
@@ -152,15 +149,12 @@ if __name__ == '__main__':
                            device=device)
         pg_agent.model.load_state_dict(torch.load(f'{models_dir}mlp.pt'))
         pg_agent.model.eval()
-        run_agent(environment, pg_agent, agent_locator,
-                  transformer, aggregator,
-                  epsilon_start=0, epsilon_min=0, train=False)
+        run_agent(pg_agent, train=False, epsilon_start=0, epsilon_min=0)
     elif args.agent == 'Q':
         print('Training Q-learning agent')
         q_agent = QAgent(aggregator.num_obs, environment.num_actions,
                          device=device)
-        run_agent(environment, q_agent, agent_locator,
-                  transformer, aggregator)
+        run_agent(q_agent)
         torch.save(q_agent.policy_network.state_dict(),
                    f'{models_dir}ddqn.pt')
     elif args.agent == 'Q_run':
@@ -170,24 +164,18 @@ if __name__ == '__main__':
         q_agent.policy_network.load_state_dict(
                 torch.load(f'{models_dir}ddqn.pt'))
         q_agent.policy_network.eval()
-        run_agent(environment, q_agent, agent_locator,
-                  transformer, aggregator,
-                  epsilon_start=0, epsilon_min=0, train=False)
+        run_agent(q_agent, train=False)
     elif args.agent == 'NEAT':
         print('Processing NEAT agent')
-        aggregator = Aggregator(size, device=torch.device('cpu'))
-        neat_agent = NeatAgent(environment, agent_locator, transformer,
-                               aggregator, f'{models_dir}NEAT/', run_agent)
+        neat_agent = NeatAgent(f'{models_dir}NEAT/', run_agent)
         neat_agent.run()
     elif args.agent == 'chase':
         print('Running chase agent')
         chase_agent = ChaseAgent(aggregator)
-        run_agent(environment, chase_agent, agent_locator,
-                  transformer, aggregator,
-                  epsilon_start=0, epsilon_min=0, train=False)
+        run_agent(chase_agent, train=False,
+                  epsilon_start=0, epsilon_min=0)
     else:  # args.agent == 'random'
         print('Running random agent')
         random_agent = Neurosmash.Agent()
-        run_agent(environment, random_agent, agent_locator,
-                  transformer, aggregator,
-                  epsilon_start=0, epsilon_min=0, train=False)
+        run_agent(random_agent, train=False,
+                  epsilon_start=0, epsilon_min=0)

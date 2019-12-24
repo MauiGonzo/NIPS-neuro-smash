@@ -2,30 +2,28 @@ import numpy as np
 import socket
 from PIL import Image
 
+
 class Agent:
     def __init__(self):
         pass
 
     def step(self, end, reward, state):
-        # return 0 # nothing
-        # return 1 # left
-        # return 2 # right
-        return   3 # random
+        # return 0  # nothing
+        # return 1  # left
+        # return 2  # right
+        return 3  # random
 
     def train(self, end, action, old_state, reward, new_state):
         pass
 
+
 class Environment:
-    def __init__(self, ip = "127.0.0.1", port = 13000, size = 768, timescale = 1):
-        self.client     = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.ip         = ip
-        self.port       = port
-        self.size       = size
-        self.timescale  = timescale
-
-        self.client.connect((ip, port))
-
+    def __init__(self, ip="127.0.0.1", port=13000, size=768, timescale=1):
+        self.size = size
         self.num_actions = 3
+
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client.connect((ip, port))
 
     def reset(self):
         self._send(1, 0)
@@ -36,7 +34,8 @@ class Environment:
         return self._receive()
 
     def state2image(self, state):
-        return Image.fromarray(np.array(state, np.uint8).reshape(self.size, self.size, 3))
+        state = np.array(state, np.uint8).reshape(self.size, self.size, 3)
+        return Image.fromarray(state)
 
     def _receive(self):
         # Kudos to Jan for the socket.MSG_WAITALL fix!

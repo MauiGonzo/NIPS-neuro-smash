@@ -48,6 +48,3 @@ class ChaseAgent(Neurosmash.Agent):
             return 0
         else:  # otherwise, turn left
             return 1
-
-    def train(self, end, action, old_state, reward, new_state):
-        pass

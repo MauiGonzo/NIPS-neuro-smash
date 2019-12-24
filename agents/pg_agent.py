@@ -140,9 +140,6 @@ class PGAgent(Neurosmash.Agent):
 
         # sample from action distribution to get action
         action_distr = Categorical(action_probs)
-
-        if action_probs[0] != action_probs[0]:
-            print(action_probs)
         action = action_distr.sample()
 
         return action

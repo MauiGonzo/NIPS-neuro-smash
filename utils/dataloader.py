@@ -7,11 +7,14 @@ import PIL.Image as Image
 import numpy as np
 import pandas as pd
 
-from utils.transformer import Transformer
-
 
 class LocationsDataset(Dataset):
-    """Dataset housing pairs of game state images and agent locations."""
+    """Dataset housing pairs of game state images and agent locations.
+
+    Attributes:
+        images    = [ndarray] 4D array of environment state images
+        locations = [ndarray] 2D array of agent locations
+    """
 
     def __init__(self, images, locations):
         """
@@ -32,23 +35,24 @@ class LocationsDataset(Dataset):
         return self.images[index], self.locations[index]
 
 
-def expand_data(states, coords, transformer):
+def expand_data(states, coordinates, transformer):
     """Increase the number of elements in the data set.
 
     Attributes:
         states      = [ndarray] 4D array of environment state images
-        coords      = [ndarray] 2D array of locations of the agents
+        coordinates = [ndarray] 2D array of locations of the agents
         transformer = [Transformer] object that transforms images
 
-    Returns:
-        The original image and 8 extra images made from that original.
+    Returns [(ndarray, ndarray)]:
+        The expanded set of images and locations, respectively. The images
+        include the original image and 8 extra images made from that original.
         They are flipped left to right, top to bottom, over the diagonal,
         and translated five times. The locations are changed accordingly.
     """
     images = []
     locations = []
 
-    for img, positions in zip(states, coords):
+    for img, positions in zip(states, coordinates):
         # add original image
         images.append(img)
         locations.append(positions)
@@ -99,12 +103,11 @@ def expand_data(states, coords, transformer):
 
 
 def split_data(images, locations, train_split, test_split):
-    """Split the data into training, validation and testing data sets.
+    """Split the data into training, validation, and testing data sets.
 
     Args:
         images      = [ndarray] 4D array of environment state images
         locations   = [ndarray] 2D array of locations of the agents
-        overlaps    = [ndarray] 1D array of whether the agents overlap
         train_split = [float] percentage of data that is for training
         test_split  = [float] percentage of data that is for testing
 
@@ -160,7 +163,7 @@ def load_data(transformer, batch_size=40, train_split=0.64, test_split=0.2,
         data_dir    = [str] file path for directory with images and locations
         device      = [torch.device] device to put the data on
 
-    Returns [(DataLoader)]:
+    Returns [(DataLoader,)]:
         The training, validation, and testing dataloaders.
     """
     # get the images

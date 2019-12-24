@@ -11,35 +11,22 @@ class NeatAgent(Neurosmash.Agent):
     """Implements a Neuroevolution of Augmenting Topologies Agent.
 
     Attributes:
-        environment   = [Environment] the environment in which the agent acts
-        agent_locator = [object] determines x and y pixel coordinates of agents
-        transformer   = [Transformer] object that transforms images
-        aggregator    = [Aggregator] object that aggregates a number of stats
-                                     given the positions of the agents
-        run_agent     = [fn] function that runs an episode in the environment
-        net           = [RecurrentNetwork] ANN that implements agent's policy
-        p             = [Population] NEAT population in the current generation
+        run_agent = [function] function that runs episodes in the environment
+        net       = [RecurrentNetwork] ANN that implements agent's policy
+        p         = [Population] NEAT population in the current generation
     """
 
-    def __init__(self, environment, agent_locator, transformer, aggregator,
-                 model_dir, run_agent):
-        """Initializes the agent.
+    def __init__(self, model_dir, run_agent):
+        """Initializes the agent. Either a brand new agent, or an agent
+           recovered from a NEAT checkpoint.
 
         Args:
-            environment   = [Environment] environment in which the agents act
-            agent_locator = [object] determines pixel coordinates of agents
-            transformer   = [Transformer] object that transforms images
-            aggregator    = [Aggregator] object that aggregates a number of
-                                         stats given the positions of the agents
-            model_dir    = [str] directory where NEAT model will be stored
-            run_agent     = [fn] function that runs a round in the environment
+            model_dir = [str] directory where NEAT model will be stored
+            run_agent = [fn] function that runs episodes in the environment
         """
         super(NeatAgent, self).__init__()
 
-        self.environment = environment
-        self.agent_locator = agent_locator
-        self.transformer = transformer
-        self.aggregator = aggregator
+        # set function to run the agent
         self.run_agent = run_agent
 
         # sets member that will be the ANN that implements the agent's policy
@@ -75,34 +62,58 @@ class NeatAgent(Neurosmash.Agent):
         self.p.add_reporter(neat.Checkpointer(5, filename_prefix=prefix))
 
     def run(self):
+        """Run the agent in the NEAT framework for 100 generations."""
         self.p.run(self.eval_fitness, 100)
 
     def eval_fitness(self, genomes, config):
-        for genome_id, genome in genomes:
+        """Fitness function that computes the fitness for each genome.
+
+        Args:
+            genomes = [Genome] network genomes in the current generation
+            config  = [Config] configuration of the neural network
+        """
+        for _, genome in genomes:
+            # create neural network policy given genome
             self.net = neat.nn.RecurrentNetwork.create(genome, config)
-            fitness_list = []
-            for i in range(7):
-                num_steps, won = self.run_agent(
-                    self.environment, self, self.agent_locator,
-                    self.transformer, self.aggregator,
-                    epsilon_start=0, epsilon_min=0, num_episodes=1
-                )
-                if won:
-                    f = -num_steps
-                else:
-                    if num_steps < 700:
-                        f = -700*5+num_steps
-                    else:
-                        f = -700*3.3
 
-                fitness_list.append(f)
+            # run some episodes and get the number of steps and wins
+            num_steps, wins = self.run_agent(self, num_episodes=7,
+                                             epsilon_start=0, epsilon_min=0)
 
+            # compute and set the fitness of the network
+            fitness_list = [self._fitness(*f) for f in zip(num_steps, wins)]
             genome.fitness = np.mean(fitness_list)
             print(f'fitness: {genome.fitness}')
 
     def step(self, end, reward, state):
-        state = state.data.numpy()
+        """The agent selects action given the current state and network.
+
+        Args:
+            end    = [bool] whether the episode has finished
+            reward = [int] reward received after doing previous action
+            state  = [torch.Tensor] current state of the environment
+
+        Returns [int]:
+            The action encoded as a number in the range [0, num_actions).
+        """
+        state = state.cpu().data.numpy()
         return np.argmax(self.net.activate(state))
 
-    def train(self, end, action, old_state, reward, new_state):
-        pass
+    @staticmethod
+    def _fitness(num_steps, won):
+        """Compute the fitness of an agent during an episode.
+
+        Args:
+            num_steps = [int] number of steps in the episode
+            won       = [bool] whether the red agent won in the episode
+
+        Returns [float]:
+            Fitness of the agent for the episode.
+        """
+        if won:
+            return -num_steps
+        else:
+            if num_steps < 700:
+                return -700 * 5 + num_steps
+            else:
+                return -700 * 3.3

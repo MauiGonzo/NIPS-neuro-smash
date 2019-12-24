@@ -150,11 +150,11 @@ class QAgent(Neurosmash.Agent):
         optimizer  = [Optimizer] optimizer used to train the model
         criterion  = [nn.Module] the loss function of the model
         y          = [float] the gamma parameter for Q learning
+        n          = [int] number of transitions used for N-step DDQN
         memory     = [ReplayMemory] memory to randomly sample state transitions
         batch_size = [int] the batch size in one update step
         num_update = [int] number of steps before target network is updated
-        num_steps  = [int] the number of steps the agent has performed
-        n          = [int] number of transitions used for N-step DDQN
+        num_steps  = [int] number of steps the agent has performed
     """
 
     def __init__(self, num_obs, num_actions, device=torch.device('cpu')):
@@ -177,7 +177,7 @@ class QAgent(Neurosmash.Agent):
         # setup an optimizer
         self.optimizer = Adam(self.policy_network.parameters(), lr=0.001)
 
-        # setup the loss function as Mean Square Error
+        # setup the loss function as Mean Squared Error
         self.criterion = nn.MSELoss()
 
         # set Q learning parameters
@@ -242,7 +242,6 @@ class QAgent(Neurosmash.Agent):
                                     device=self.device).unsqueeze(1)
         old_state_batch = torch.stack(minibatch[2]).to(self.device)
         rewards_batch = torch.tensor(minibatch[3:-1:4],
-                                     dtype=torch.float,
                                      device=self.device).t().unsqueeze(2)
         new_state_batch = torch.stack(minibatch[-1]).to(self.device)
 

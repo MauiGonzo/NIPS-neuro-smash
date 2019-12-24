@@ -18,7 +18,10 @@ SAVE_DIFFICULT = False
 # else:
 #     logging.basicConfig(level=logging.WARNING)
 
-background = np.array(Image.open('data/background_64.png'))[:, :, :3]
+if os.path.isdir('data'):
+    background = np.array(Image.open('data/background_64.png'))[:, :, :3]
+else:
+    background = np.array(Image.open('../data/background_64.png'))[:, :, :3]
 
 red = np.array([151, 106, 1079])
 blue = np.array([120, 128, 163])

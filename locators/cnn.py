@@ -41,8 +41,6 @@ class ConvNet(nn.Module):
     """Implements a deep Convolutional Neural Network.
 
     Attributes:
-        environment = [Environment] the environment in which the agent acts
-        transformer = [Transformer] object that transforms images
         conv1       = [nn.Module] first convolutional layer
         bn1         = [nn.Module] first batch normalization layer
         conv2       = [nn.Module] second convolutional layer
@@ -55,17 +53,13 @@ class ConvNet(nn.Module):
         fc2         = [nn.Module] second fully connected layer
     """
 
-    def __init__(self, environment, transformer, device=torch.device('cpu')):
+    def __init__(self, device=torch.device('cpu')):
         """Initializes the Convolutional Neural Network.
 
         Args:
-            environment = [Environment] the environment in which the agent acts
-            transformer = [Transformer] object that transforms images
             device      = [torch.device] device to put the neural network on
         """
         super(ConvNet, self).__init__()
-        self.environment = environment
-        self.transformer = transformer
 
         self.conv1 = nn.Conv2d(3, 32, 5, padding=2)
         self.bn1 = nn.BatchNorm2d(32)
@@ -78,16 +72,9 @@ class ConvNet(nn.Module):
         self.dropout = nn.Dropout(p=0.5)
         self.fc2 = nn.Linear(1024, 2)
 
-        self.device = device
-        self.to(self.device)
+        self.to(device)
 
     def forward(self, x):
-        input_is_1d = type(x) is list
-        if input_is_1d:  # convert state list to tensor
-            x = self.transformer.perspective(self.environment.state2image(x))
-            x = np.asarray(x, 'f').transpose(2, 0, 1)
-            x = torch.tensor(x, device=self.device).unsqueeze(0)
-
         h = F.max_pool2d(F.relu(self.conv1(x)), 3, stride=2)
         h = self.bn1(h)
         h = F.max_pool2d(F.relu(self.conv2(h)), 3, stride=2)
@@ -98,16 +85,17 @@ class ConvNet(nn.Module):
         h = self.dropout(F.relu(self.fc1(h)))
         y = self.fc2(h)
 
-        if input_is_1d:  # convert output to a location
-            y = y.squeeze().to(torch.device('cpu')).data.numpy()
-
         return y
+
 
 class TwoCNNsLocator(object):
     """Determines x and y pixel coordinates of agents with Convoluational
        Neural Networks.
 
     Attributes:
+        environment = [Environment] the environment in which the agent acts
+        transformer = [Transformer] object that transforms images
+        device      = [torch.device] device to put the models and data on
         cnn_red     = [nn.Module] CNN that determines location of red agent
         cnn_blue    = [nn.Module] CNN that determines location of blue agent
         perspective = [bool] whether to perspective transform the state image
@@ -121,31 +109,41 @@ class TwoCNNsLocator(object):
             environment = [Environment] the environment in which the agent acts
             transformer = [Transformer] object that transforms images
             models_dir  = [str] directory where the CNNs are stored
-            device      = [torch.device] device to put the neural network on
+            device      = [torch.device] device to put the models and data on
         """
+        self.environment = environment
+        self.transformer = transformer
+        self.device = device
+        self.perspective = True
+
         # initialize CNN for red agent
-        self.cnn_red = ConvNet(environment, transformer, device=device)
+        self.cnn_red = ConvNet(device=device)
         self.cnn_red.load_state_dict(torch.load(f'{models_dir}cnn_red.pt'))
         self.cnn_red.eval()
 
         # initialize CNN for blue agent
-        self.cnn_blue = ConvNet(environment, transformer, device=device)
+        self.cnn_blue = ConvNet(device=device)
         self.cnn_blue.load_state_dict(torch.load(f'{models_dir}cnn_blue.pt'))
         self.cnn_blue.eval()
 
-        self.perspective = True
-
-    def get_locations(self, state_img):
+    def get_locations(self, state):
         """Determine the x and y pixel coordinates of the red and blue agents.
 
         Args:
             state_img = [ndarray] current state of environment as NumPy ndarray
 
-        Returns [(x_red, y_red), (x_blue, y_blue)]:
+        Returns [([x_red, y_red], [x_blue, y_blue])]:
             The x and y pixel coordinates of the red and blue agents
             as a tuple of NumPy ndarrays.
         """
-        loc_red = self.cnn_red(state_img)
-        loc_blue = self.cnn_blue(state_img)
+        # make a torch.Tensor from the state
+        state_img = self.environment.state2image(state)
+        state_img = self.transformer.perspective(state_img)
+        state_img = np.asarray(state_img, 'f').transpose(2, 0, 1)
+        state_img = torch.tensor(state_img, device=self.device).unsqueeze(0)
+
+        # get locations of agents as NumPy ndarrays
+        loc_red = self.cnn_red(state_img).squeeze().cpu().data.numpy()
+        loc_blue = self.cnn_blue(state_img).squeeze().cpu().data.numpy()
 
         return loc_red, loc_blue
