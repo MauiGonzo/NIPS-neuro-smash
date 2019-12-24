@@ -71,10 +71,10 @@ class Aggregator(object):
             The direction from location 1 to 2 in (-pi, pi].
         """
         rad = math.atan2(y1-y2, x1-x2)
-        if rad <= -math.pi*1/2:  # rad <= -90 degrees
-            return rad + math.pi*3/2  # rad + 270 degrees
+        if rad <= -math.pi*1/2:  # deg <= -90 degrees
+            return rad + math.pi*3/2  # deg + 270 degrees
         else:
-            return rad - math.pi*1/2  # rad - 90 degrees
+            return rad - math.pi*1/2  # deg - 90 degrees
 
     def speed(self, x1, y1, x2, y2):
         """Compute the speed of the agent between locations 1 and 2

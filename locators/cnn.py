@@ -96,9 +96,9 @@ class TwoCNNsLocator(object):
         environment = [Environment] the environment in which the agent acts
         transformer = [Transformer] object that transforms images
         device      = [torch.device] device to put the models and data on
+        perspective = [bool] whether to perspective transform the state image
         cnn_red     = [nn.Module] CNN that determines location of red agent
         cnn_blue    = [nn.Module] CNN that determines location of blue agent
-        perspective = [bool] whether to perspective transform the state image
     """
 
     def __init__(self, environment, transformer,

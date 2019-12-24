@@ -17,7 +17,6 @@ class ChaseAgent(Neurosmash.Agent):
         """
         super(ChaseAgent, self).__init__()
 
-        # set aggregator object
         self.aggregator = aggregator
 
     def step(self, end, reward, state):

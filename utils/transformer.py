@@ -53,10 +53,10 @@ class Transformer(object):
         for s, t in zip(source_coords, target_coords):
             matrix.append([t[0], t[1], 1, 0, 0, 0, -s[0] * t[0], -s[0] * t[1]])
             matrix.append([0, 0, 0, t[0], t[1], 1, -s[1] * t[0], -s[1] * t[1]])
-        A = np.matrix(matrix, dtype=np.float)
+        A = np.array(matrix)
         B = np.array(source_coords).reshape(8)
-        res = np.dot(np.linalg.inv(A.T * A) * A.T, B)
-        return np.array(res).reshape(8)
+        res = np.linalg.inv(A.T @ A) @ A.T @ B
+        return res.reshape(8)
 
     def perspective(self, img):
         """"Transform the perspective of the image to get a square stage.

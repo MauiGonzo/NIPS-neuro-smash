@@ -22,7 +22,7 @@ class NeatAgent(Neurosmash.Agent):
 
         Args:
             model_dir = [str] directory where NEAT model will be stored
-            run_agent = [fn] function that runs episodes in the environment
+            run_agent = [function] function to run episodes in the environment
         """
         super(NeatAgent, self).__init__()
 
@@ -112,8 +112,7 @@ class NeatAgent(Neurosmash.Agent):
         """
         if won:
             return -num_steps
+        elif num_steps < 700:
+            return -700 * 5 + num_steps
         else:
-            if num_steps < 700:
-                return -700 * 5 + num_steps
-            else:
-                return -700 * 3.3
+            return -700 * 3.3

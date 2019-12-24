@@ -28,16 +28,15 @@ def train_cnns(train_iter, validation_iter, num_epochs=100):
         validation_iter = [DataLoader] the validation batch iterator
         num_epochs      = [int] number of times all training data is sampled
 
-    Returns [(nn.Module,)]:
+    Returns [(nn.Module, nn.Module)]:
         The trained convolutional neural networks.
     """
     # initialize CNNs and optimizers
-    cnn_red = ConvNet(environment, transformer, device)
-    cnn_blue = ConvNet(environment, transformer, device)
-    optimizers = Adam(cnn_red.parameters()), Adam(cnn_blue.parameters())
+    cnns = ConvNet(device), ConvNet(device)
+    optimizers = Adam(cnns[0].parameters()), Adam(cnns[1].parameters())
     indices = [0, 1], [2, 3]
 
-    for cnn, optimizer, idx in zip((cnn_red, cnn_blue), optimizers, indices):
+    for cnn, optimizer, idx in zip(cnns, optimizers, indices):
         for i_epoch in range(num_epochs):
             # train CNN on training data
             train_losses = []
@@ -64,7 +63,7 @@ def train_cnns(train_iter, validation_iter, num_epochs=100):
             avg_validation_loss = torch.mean(torch.stack(validation_losses))
             print(f'\tValidation loss: {avg_validation_loss}')
 
-    return cnn_red, cnn_blue
+    return cnns
 
 
 if __name__ == '__main__':

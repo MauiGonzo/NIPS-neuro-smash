@@ -96,13 +96,16 @@ def run_agent(agent, num_episodes=1000, train=True,
 
 
 if __name__ == '__main__':
+    # combinations of options for agent and agent locator
+    agents = ['PG', 'PG_run', 'Q', 'Q_run', 'NEAT', 'random', 'chase']
+    agent_locators = ['TwoCNNs', 'Vision']
+
     # process the command options
     parser = argparse.ArgumentParser()
-    agents = ['PG', 'PG_run', 'Q', 'Q_run', 'NEAT', 'random', 'chase']
     parser.add_argument('agent', type=str, choices=agents,
-                        help=f'agent names to train, choose {agents}')
-    parser.add_argument('agent_locator', type=str, choices=['TwoCNN', 'Vision'],
-                        help='finds agent positions, choose <TwoCNN, Vision>')
+                        help=f'agent to run, train, or process')
+    parser.add_argument('agent_locator', type=str, choices=agent_locators,
+                        help='determines positions of agents')
     parser.add_argument('--plot-positions', dest='p_plot', action='store_true',
                         help='plot the positions of the agents')
     parser.add_argument('--plot-rewards', dest='r_plot', action='store_true',
@@ -124,7 +127,7 @@ if __name__ == '__main__':
     # initialize the transformer, aggregator, and agent locator
     transformer = Transformer(size, bg_file_name=f'{data_dir}background_64.png')
     aggregator = Aggregator(size, device=device)
-    if args.agent_locator == 'TwoCNN':
+    if args.agent_locator == 'TwoCNNs':
         agent_locator = TwoCNNsLocator(environment, transformer,
                                        models_dir=models_dir, device=device)
     else:  # args.agent_locator == 'Vision'
