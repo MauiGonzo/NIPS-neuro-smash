@@ -318,7 +318,7 @@ class AgentLocator(object):
         state = np.array(state_img).reshape(self.size, self.size, 3)
 
         self.update_agent_locations(state)
-        return self.red_agent.pos, self.blue_agent.pos
+        return self.red_agent.pos[::-1], self.blue_agent.pos[::-1]
 
     def _update_agent_locations_vel(self):
         """

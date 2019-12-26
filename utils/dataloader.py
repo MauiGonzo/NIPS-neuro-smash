@@ -29,9 +29,6 @@ class LocationsDataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, index):
-        if torch.is_tensor(index):
-            index = index.tolist()
-
         return self.images[index], self.locations[index]
 
 
@@ -170,7 +167,7 @@ def load_data(transformer, batch_size=40, train_split=0.64, test_split=0.2,
     image_file_names = glob.iglob(f'{data_dir}images/*.png')
     image_file_names = sorted(image_file_names, key=natural_key)
     images = [Image.open(f).convert('RGB') for f in image_file_names]
-    images = np.array([np.asarray(i, 'f').transpose(2, 0, 1) for i in images])
+    images = np.array([np.asarray(i, 'f').transpose((2, 0, 1)) for i in images])
 
     # get the locations
     locations_overlaps = pd.read_csv(f'{data_dir}locations_overlaps.csv')

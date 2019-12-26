@@ -232,21 +232,21 @@ class Aggregator(object):
         x1_blue, y1_blue = xy1_blue
         x2_blue, y2_blue = xy2_blue
 
-        l = [x2_red, y2_red, x2_blue, y2_blue,
-             self.direction(x1_red, y1_red, x2_red, y2_red),
-             self.direction(x1_blue, y1_blue, x2_blue, y2_blue),
-             self.speed(x1_red, y1_red, x2_red, y2_red),
-             self.speed(x1_blue, y1_blue, x2_blue, y2_blue),
-             self.dist_from_center(x2_red, y2_red),
-             self.dist_from_center(x2_blue, y2_blue),
-             self.dist_from_edge(x2_red, y2_red),
-             self.dist_from_edge(x2_blue, y2_blue),
-             self.distance(x2_red, y2_red, x2_blue, y2_blue),
-             self.direction(x2_red, y2_red, x2_blue, y2_blue),
-             self.close_to_blue(x2_red, y2_red, x2_blue, y2_blue),
-             self.danger_index(x2_red, y2_red, x2_blue, y2_blue),
-             self.opportunity_index(x2_red, y2_red, x2_blue, y2_blue),
-             self.safe_index(x2_red, y2_red)
-             ]
+        vector = [x2_red, y2_red, x2_blue, y2_blue,
+                  self.direction(x1_red, y1_red, x2_red, y2_red),
+                  self.direction(x1_blue, y1_blue, x2_blue, y2_blue),
+                  self.speed(x1_red, y1_red, x2_red, y2_red),
+                  self.speed(x1_blue, y1_blue, x2_blue, y2_blue),
+                  self.dist_from_center(x2_red, y2_red),
+                  self.dist_from_center(x2_blue, y2_blue),
+                  self.dist_from_edge(x2_red, y2_red),
+                  self.dist_from_edge(x2_blue, y2_blue),
+                  self.distance(x2_red, y2_red, x2_blue, y2_blue),
+                  self.direction(x2_red, y2_red, x2_blue, y2_blue),
+                  self.close_to_blue(x2_red, y2_red, x2_blue, y2_blue),
+                  self.danger_index(x2_red, y2_red, x2_blue, y2_blue),
+                  self.opportunity_index(x2_red, y2_red, x2_blue, y2_blue),
+                  self.safe_index(x2_red, y2_red)
+                  ]
 
-        return torch.tensor(l, device=self.device)
+        return torch.tensor(vector, device=self.device)

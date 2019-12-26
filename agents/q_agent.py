@@ -206,10 +206,10 @@ class QAgent(Neurosmash.Agent):
             The action encoded as a number in the range [0, num_actions).
         """
         # apply q-learning neural network to get q-value estimation
-        Q = self.policy_network(state)
+        q_values = self.policy_network(state)
 
         # choose an action by greedily picking from Q table
-        action = torch.argmax(Q)
+        action = torch.argmax(q_values)
 
         return action
 
@@ -246,19 +246,19 @@ class QAgent(Neurosmash.Agent):
         new_state_batch = torch.stack(minibatch[-1]).to(self.device)
 
         # compute predicted Q values on old states
-        Q_pred = self.policy_network(old_state_batch).gather(1, action_batch)
+        q_pred = self.policy_network(old_state_batch).gather(1, action_batch)
 
         # get target network Q value on new state based on policy network action
         actions = self.policy_network(new_state_batch).argmax(1, keepdim=True)
-        Q_target = self.target_network(new_state_batch).gather(1, actions)
+        q_target = self.target_network(new_state_batch).gather(1, actions)
 
         # compute what the predicted Q values should have been
         for i in range(self.n)[::-1]:
-            Q_target = rewards_batch[:, i] + \
-                       (1 - ends_batch[:, i]) * self.y * Q_target
+            q_target = rewards_batch[:, i] + \
+                       (1 - ends_batch[:, i]) * self.y * q_target
 
         # compute the loss as MSE between predicted and target Q values
-        loss = self.criterion(Q_pred, Q_target)
+        loss = self.criterion(q_pred, q_target)
 
         # update model parameters
         self.optimizer.zero_grad()

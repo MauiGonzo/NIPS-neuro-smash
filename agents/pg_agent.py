@@ -177,13 +177,13 @@ class PGAgent(Neurosmash.Agent):
         reward_batch = torch.tensor(minibatch[1], device=self.device)
 
         # compute Q values for each step in the episode
-        Q_values = torch.zeros(len(reward_batch), device=self.device)
-        Q_values[-1] = reward_batch[-1]
-        for i in range(len(Q_values))[:0:-1]:
-            Q_values[i - 1] = reward_batch[i - 1] + self.y * Q_values[i]
+        q_values = torch.zeros(reward_batch.shape[0], device=self.device)
+        q_values[-1] = reward_batch[-1]
+        for i in range(q_values.shape[0])[:0:-1]:
+            q_values[i - 1] = reward_batch[i - 1] + self.y * q_values[i]
 
         # compute loss
-        loss = -1 * torch.sum(action_log_prob_batch * Q_values)
+        loss = -1 * torch.sum(action_log_prob_batch * q_values)
         print(f'loss: {loss}')
 
         # update model parameters

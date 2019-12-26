@@ -139,7 +139,7 @@ class TwoCNNsLocator(object):
         # make a torch.Tensor from the state
         state_img = self.environment.state2image(state)
         state_img = self.transformer.perspective(state_img)
-        state_img = np.asarray(state_img, 'f').transpose(2, 0, 1)
+        state_img = np.asarray(state_img, 'f').transpose((2, 0, 1))
         state_img = torch.tensor(state_img, device=self.device).unsqueeze(0)
 
         # get locations of agents as NumPy ndarrays

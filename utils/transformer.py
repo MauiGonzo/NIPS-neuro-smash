@@ -37,26 +37,7 @@ class Transformer(object):
 
         # save background image for filtering out agents
         self.bg = Image.open(bg_file_name).convert('RGB')
-        self.bg = np.asarray(self.bg, np.uint8, 'f').transpose(2, 0, 1)
-
-    def _find_coeffs(self, source_coords, target_coords):
-        """Finds coefficients needed for perspective transformation.
-
-        Args:
-            source_coords = [[(int, int)]] source x and y pixel coordinates list
-            target_coords = [[(int, int)]] target x and y pixel coordinates list
-
-        Returns [ndarray]:
-            Coefficients as a NumPy ndarray of floats.
-        """
-        matrix = []
-        for s, t in zip(source_coords, target_coords):
-            matrix.append([t[0], t[1], 1, 0, 0, 0, -s[0] * t[0], -s[0] * t[1]])
-            matrix.append([0, 0, 0, t[0], t[1], 1, -s[1] * t[0], -s[1] * t[1]])
-        A = np.array(matrix)
-        B = np.array(source_coords).reshape(8)
-        res = np.linalg.inv(A.T @ A) @ A.T @ B
-        return res.reshape(8)
+        self.bg = np.asarray(self.bg, np.uint8, 'f').transpose((2, 0, 1))
 
     def perspective(self, img):
         """"Transform the perspective of the image to get a square stage.
@@ -134,3 +115,23 @@ class Transformer(object):
         img_no_bg = (img - self.bg) % 255
         img_no_bg_translated = np.roll(img_no_bg, shift, axis + 1)
         return (img_no_bg_translated + self.bg) % 255
+
+    @staticmethod
+    def _find_coeffs(source_coords, target_coords):
+        """Finds coefficients needed for perspective transformation.
+
+        Args:
+            source_coords = [[(int, int)]] source x and y pixel coordinates list
+            target_coords = [[(int, int)]] target x and y pixel coordinates list
+
+        Returns [ndarray]:
+            Coefficients as a NumPy ndarray of floats.
+        """
+        matrix = []
+        for s, t in zip(source_coords, target_coords):
+            matrix.append([t[0], t[1], 1, 0, 0, 0, -s[0] * t[0], -s[0] * t[1]])
+            matrix.append([0, 0, 0, t[0], t[1], 1, -s[1] * t[0], -s[1] * t[1]])
+        a = np.array(matrix)
+        b = np.array(source_coords).reshape(8)
+        res = np.linalg.inv(a.T @ a) @ a.T @ b
+        return res.reshape(8)

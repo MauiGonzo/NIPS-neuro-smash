@@ -116,6 +116,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # connect to environment via TCP/IP
+    environment = None
     connected = False
     while not connected:
         try:

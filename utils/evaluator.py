@@ -103,11 +103,12 @@ def plot_rewards(rewards, window=10):
     plt.pause(0.001)
 
 
-def evaluate_locations(num_episodes=10):
+def evaluate_locations(agent_locator, num_episodes=10):
     """Evaluate the agent locator on the real environment.
 
     Args:
         num_episodes  = [int] number of episodes to evaluate
+        agent_locator = [object] object that determines locations of agents
     """
     rewards = []
     for _ in range(num_episodes):
@@ -142,9 +143,9 @@ if __name__ == '__main__':
     )
 
     agent_locator = TwoCNNsLocator(environment, transformer, models_dir, device)
-    evaluate_locations()
+    evaluate_locations(agent_locator)
 
     # in locators.agent_locator, set background file name from this file
     agent_locator = AgentLocator(cooldown_time=0, minimum_agent_area=4,
                                  minimum_agent_area_overlap=3)
-    evaluate_locations()
+    evaluate_locations(agent_locator)
