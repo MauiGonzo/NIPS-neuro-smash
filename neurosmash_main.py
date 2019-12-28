@@ -40,9 +40,9 @@ def run_agent(agent, num_episodes=1000, train=True,
         For each episode, the number of steps in the episode and whether
         the red agent was victorious.
     """
-    rewards = []
-    num_steps = []
-    wins = []
+    rewards = [0]*num_episodes
+    num_steps = [0]*num_episodes
+    wins = [0]*num_episodes
 
     epsilon = epsilon_start  # initialize epsilon
     for i_episode in range(num_episodes):
@@ -51,9 +51,6 @@ def run_agent(agent, num_episodes=1000, train=True,
         old_loc_red, old_loc_blue = agent_locator.get_locations(state_img)
         old_state = aggregator.aggregate(old_loc_red, old_loc_red,
                                          old_loc_blue, old_loc_blue)
-
-        rewards.append(reward)
-        num_steps.append(0)
         while not end:
             # choose an action
             if random.random() < epsilon:
@@ -79,18 +76,21 @@ def run_agent(agent, num_episodes=1000, train=True,
             # bookkeeping
             old_state = new_state
             old_loc_red, old_loc_blue = new_loc_red, new_loc_blue
-            rewards[-1] += reward
-            num_steps[-1] += 1
+            rewards[i_episode] += reward
+            num_steps[i_episode] += 1
+
+            if num_steps[i_episode] > 2500:  # bug in environment
+                break
 
             # decay epsilon parameter
             epsilon = max(epsilon_min, epsilon * epsilon_decay)
 
         # determine whether the agent lost or won
-        wins.append(reward == 10)
+        wins[i_episode] = reward == 10
         print('--- WINNER ---' if reward == 10 else '--- LOSER ---')
 
         if args.r_plot:
-            plot_rewards(rewards)
+            plot_rewards(rewards[:i_episode + 1])
 
     return num_steps, wins
 
