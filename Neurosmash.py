@@ -9,9 +9,9 @@ class Agent:
 
     def step(self, end, reward, state):
         # return 0  # nothing
-        # return 1  # left
+        return 1  # left
         # return 2  # right
-        return 3  # random
+        # return 3  # random
 
     def train(self, end, action, old_state, reward, new_state):
         pass
