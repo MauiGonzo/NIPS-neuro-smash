@@ -45,40 +45,24 @@ class NeatAgent(Neurosmash.Agent):
 
             # create population, which is the top-level object for a NEAT run
             self.p = neat.Population(config)
+
+            # add a stdout reporter to show progress in the terminal
+            self.p.add_reporter(neat.StdOutReporter(True))
+            self.p.add_reporter(neat.StatisticsReporter())
+            self.p.add_reporter(neat.Checkpointer(5, filename_prefix=prefix))
         else:
             # create population, which is the top-level object for a NEAT run
             checkpoints = sorted(checkpoints, key=natural_key)
             last_checkpoint = checkpoints[-1]
-            self.p = neat.Checkpointer.restore_checkpoint(last_checkpoint)
+            p = neat.Checkpointer.restore_checkpoint(last_checkpoint)
 
-        # add a stdout reporter to show progress in the terminal
-        self.p.add_reporter(neat.StdOutReporter(True))
-        self.p.add_reporter(neat.StatisticsReporter())
-        self.p.add_reporter(neat.Checkpointer(5, filename_prefix=prefix))
+            # create network of the genome with the highest fitness
+            best_genome = p.population[573]
+            self.net = neat.nn.RecurrentNetwork.create(best_genome, p.config)
 
     def run(self):
-        """Run the agent in the NEAT framework for 100 generations."""
+        """Train the agent in the NEAT framework for 100 generations."""
         self.p.run(self.eval_fitness, 100)
-
-    def eval_fitness(self, genomes, config):
-        """Fitness function that computes the fitness for each genome.
-
-        Args:
-            genomes = [[(int, Genome)]] network genomes in current generation
-            config  = [Config] configuration of the neural network
-        """
-        for _, genome in genomes:
-            # create neural network policy given genome
-            self.net = neat.nn.RecurrentNetwork.create(genome, config)
-
-            # run some episodes and get the number of steps and wins
-            num_steps, wins = self.run_agent(self, num_episodes=7,
-                                             epsilon_start=0, epsilon_min=0)
-
-            # compute and set the fitness of the network
-            fitness_list = [self._fitness(*f) for f in zip(num_steps, wins)]
-            genome.fitness = np.mean(fitness_list)
-            print(f'fitness: {genome.fitness}')
 
     def step(self, end, reward, state):
         """The agent selects action given the current state and network.
@@ -93,6 +77,26 @@ class NeatAgent(Neurosmash.Agent):
         """
         state = state.cpu().data.numpy()
         return np.argmax(self.net.activate(state))
+
+    def eval_fitness(self, genomes, config):
+        """Fitness function that computes the fitness for each genome.
+
+        Args:
+            genomes = [[(int, Genome)]] network genomes in current generation
+            config  = [Config] configuration of the neural network
+        """
+        for genome_id, genome in genomes:
+            # create neural network policy given genome
+            self.net = neat.nn.RecurrentNetwork.create(genome, config)
+
+            # run some episodes and get the number of steps and wins
+            num_steps, wins = self.run_agent(self, num_episodes=7,
+                                             epsilon_start=0, epsilon_min=0)
+
+            # compute and set the fitness of the network
+            fitness_list = [self._fitness(*f) for f in zip(num_steps, wins)]
+            genome.fitness = np.mean(fitness_list)
+            print(f'Genome {genome_id} fitness: {genome.fitness}')
 
     @staticmethod
     def _fitness(num_steps, won):

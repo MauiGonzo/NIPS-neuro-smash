@@ -99,13 +99,13 @@ def run_agent(agent, num_episodes=1000, train=True,
 
 if __name__ == '__main__':
     # combinations of options for agent and agent locator
-    agents = ['PG', 'PG_run', 'Q', 'Q_run', 'NEAT', 'random', 'chase']
+    agents = ['PG', 'PG_run', 'Q', 'Q_run', 'NEAT', 'NEAT_run', 'left', 'chase']
     agent_locators = ['TwoCNNs', 'Vision']
 
     # process the command options
     parser = argparse.ArgumentParser()
     parser.add_argument('agent', type=str, choices=agents,
-                        help=f'agent to run, train, or process')
+                        help=f'agent to train or run')
     parser.add_argument('agent_locator', type=str, choices=agent_locators,
                         help='determines positions of agents')
     parser.add_argument('--plot-positions', dest='p_plot', action='store_true',
@@ -167,14 +167,18 @@ if __name__ == '__main__':
         q_agent.policy_network.eval()
         run_agent(q_agent, train=False, epsilon_start=0, epsilon_min=0)
     elif args.agent == 'NEAT':
-        print('Processing NEAT agent')
-        neat_agent = NeatAgent(f'{models_dir}NEAT/', run_agent)
+        print('Training NEAT agent')
+        neat_agent = NeatAgent(f'{models_dir}NEAT_new/', run_agent)
         neat_agent.run()
+    elif args.agent == 'NEAT_run':
+        print('Running NEAT agent')
+        neat_agent = NeatAgent(f'{models_dir}NEAT/', run_agent)
+        run_agent(neat_agent, epsilon_start=0, epsilon_min=0)
     elif args.agent == 'chase':
         print('Running chase agent')
         chase_agent = ChaseAgent(aggregator)
         run_agent(chase_agent, epsilon_start=0, epsilon_min=0)
-    else:  # args.agent == 'random'
-        print('Running random agent')
-        random_agent = Neurosmash.Agent()
-        run_agent(random_agent, epsilon_start=0, epsilon_min=0)
+    else:  # args.agent == 'left'
+        print('Running left agent')
+        left_agent = Neurosmash.Agent()
+        run_agent(left_agent, epsilon_start=0, epsilon_min=0)
