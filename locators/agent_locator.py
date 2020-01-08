@@ -6,6 +6,7 @@ from typing import Optional
 
 import numpy as np
 from PIL import Image
+import matplotlib.pyplot as plt
 from scipy.ndimage import distance_transform_edt, center_of_mass
 from skimage.measure import label, regionprops
 from skimage.morphology import binary_erosion, binary_dilation
@@ -17,6 +18,8 @@ SAVE_DIFFICULT = False
 #     logging.basicConfig(level=logging.DEBUG)
 # else:
 #     logging.basicConfig(level=logging.WARNING)
+
+# logging.basicConfig(level=logging.WARNING)
 
 if os.path.isdir('data'):
     background = np.array(Image.open('data/background_64.png'))[:, :, :3]
@@ -66,11 +69,11 @@ class Agent(object):
         :rtype: bool
         """
         if self.last_pos_update is not None:
-            self.vel = (new_pos - self.computed_pos) / (frame - self.last_pos_update)
+            self.vel = (new_pos - self.pos) / (frame - self.last_pos_update)
             # self.avg_vel += [np.linalg.norm(self.vel)]
             # print(np.mean(self.avg_vel), np.percentile(self.avg_vel, [50, 75, 99, 100]))
             # TODO: Make this threshold configurable
-            if np.linalg.norm(self.vel) > 3.2:
+            if np.linalg.norm(self.vel) > 3.86:
                 self.update_pos_based_on_vel(frame - self.last_pos_update)
                 return False
 
@@ -135,9 +138,9 @@ class AgentLocator(object):
     def __init__(self, use_dilation: bool = False, use_erosion: bool = False, use_overlap_label_dilation: bool = True,
                  cooldown_time: int = 5,
                  minimum_agent_area: int = 4, minimum_agent_area_overlap: int = 3, blue_marker_thresh: int = 5,
-                 red_marker_thresh: int = 5, lag: float = 0.1, lag_overlap: float = 0.4, save_difficult: bool = False,
+                 red_marker_thresh: int = 5, lag: float = 0.03, lag_overlap: float = 0.36, save_difficult: bool = False,
                  save_difficult_prob: float = 0.001):
-        """iwejifwej
+        """
 
         :param use_dilation: Whether to apply morphological dilation to the segmentation image
         :param use_erosion: Whether to apply morphological erosion the the marker images used by watershed
@@ -178,6 +181,10 @@ class AgentLocator(object):
         self.size = 64
         self.perspective = False
 
+    def reset(self):
+        self.blue_agent = Agent(self.blue_agent.lag, self.blue_agent.lag_overlap)
+        self.red_agent = Agent(self.red_agent.lag, self.red_agent.lag_overlap)
+
     def update_agent_locations(self, state_img: np.ndarray):
         """Update the blue and red agents location based on a stage image
 
@@ -187,6 +194,7 @@ class AgentLocator(object):
             The state image from which to extract agent locations
         """
         self.errored = False
+        state_img = state_img.astype(np.float)
         # FIXME: Do not catch all exceptions...
         try:
             self.frame_counter += 1
@@ -194,7 +202,7 @@ class AgentLocator(object):
             if self.cooldown == 0 or self.blue_agent.vel is None or self.red_agent.vel is None:
                 logging.debug('Computing agent locations based on image')
                 foreground = np.mean(np.abs(state_img - background), axis=2)
-                segmented = foreground > 0.01
+                segmented = foreground > 1
                 labeled = label(segmented if not self.use_dilation else binary_dilation(segmented, selem=np.array([
                     [0, 1, 0],
                     [1, 1, 1],
@@ -212,16 +220,22 @@ class AgentLocator(object):
                                          overlap_agents[:, :, 2].shape)
                 red = overlap_agents[index]
 
+                # plt.imshow(segmented)
+                # plt.show()
+                #
+                # plt.imshow(overlap_agents)
+                # plt.show()
+
                 if len(regions) == 1:
                     # TODO: Make grayness threshold configurable
                     logging.debug(
                         f'Single region found, red grayness: {_grayness(red)}, blue grayness {_grayness(blue)}')
-                    if _grayness(red) > 3.4:
+                    if _grayness(red) > 3.5:
                         logging.debug('Only blue agent detected')
                         self.blue_agent.update_pos(np.array(regions[0].centroid), self.frame_counter, overlap=False)
                         self.red_agent.update_pos_based_on_vel(1)
                         return
-                    elif _grayness(blue) > 3.4:
+                    elif _grayness(blue) > 3.5:
                         logging.debug('Only red agent detected')
                         self.red_agent.update_pos(np.array(regions[0].centroid), self.frame_counter, overlap=False)
                         self.blue_agent.update_pos_based_on_vel(1)
@@ -264,18 +278,52 @@ class AgentLocator(object):
                             np.min(np.mean(np.abs(
                                 (overlap_agents * np.repeat((labeled == 2)[:, :, np.newaxis], 3, axis=2)).astype(
                                     np.float) - blue), axis=2))):
-                        fail_sum += self.blue_agent.update_pos(np.array(center_of_mass(labeled == 1)),
+                        fail_sum += not self.blue_agent.update_pos(np.array(center_of_mass(labeled == 1)),
                                                                self.frame_counter, overlap=True)
-                        fail_sum += self.red_agent.update_pos(np.array(center_of_mass(labeled == 2)),
+                        fail_sum += not self.red_agent.update_pos(np.array(center_of_mass(labeled == 2)),
                                                               self.frame_counter, overlap=True)
                     else:
-                        fail_sum += self.blue_agent.update_pos(np.array(center_of_mass(labeled == 2)),
+                        fail_sum += not self.blue_agent.update_pos(np.array(center_of_mass(labeled == 2)),
                                                                self.frame_counter, overlap=True)
-                        fail_sum += self.red_agent.update_pos(np.array(center_of_mass(labeled == 1)),
+                        fail_sum += not self.red_agent.update_pos(np.array(center_of_mass(labeled == 1)),
                                                               self.frame_counter, overlap=True)
 
                     if fail_sum > 0:
                         logging.debug('At least one agent detected error in localization')
+                        if DEBUG:
+                            plt.imshow(state_img/255)
+                            plt.show()
+
+                            plt.imshow(segmented)
+                            plt.show()
+
+                            plt.imshow(overlap_agents)
+                            plt.show()
+
+                            plt.imshow(markers)
+                            plt.show()
+
+                            plt.imshow(labeled)
+                            plt.show()
+
+                            plt.imshow(state_img/255)
+                            if (np.min(np.mean(np.abs(
+                                    (overlap_agents * np.repeat((labeled == 2)[:, :, np.newaxis], 3, axis=2)).astype(
+                                        np.float) - red), axis=2)) <
+                                    np.min(np.mean(np.abs(
+                                        (overlap_agents * np.repeat((labeled == 2)[:, :, np.newaxis], 3,
+                                                                    axis=2)).astype(
+                                            np.float) - blue), axis=2))):
+                                blue_pos = np.array(center_of_mass(labeled == 1))
+                                red_pos = np.array(center_of_mass(labeled == 2))
+                            else:
+                                blue_pos = np.array(center_of_mass(labeled == 2))
+                                red_pos = np.array(center_of_mass(labeled == 1))
+                            plt.scatter([blue_pos[1]], [blue_pos[0]], c='b')
+                            plt.scatter([red_pos[1]], [red_pos[0]], c='r')
+                            plt.show()
+                            print('test')
+
                         self._save_difficult(state_img, labeled, markers)
                 else:
                     logging.debug('Two separate regions found')
@@ -301,7 +349,7 @@ class AgentLocator(object):
             if DEBUG:
                 Image.fromarray(labeled.astype(np.uint8)).save('error_labeled.png')
                 Image.fromarray(state_img.astype(np.uint8)).save('error.png')
-                raise ValueError()
+                raise e
             else:
                 self._update_agent_locations_vel()
 

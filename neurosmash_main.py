@@ -48,6 +48,8 @@ def run_agent(agent, num_episodes=1000, train=True,
     for i_episode in range(num_episodes):
         # reset environment, create first observation
         end, reward, state_img = environment.reset()
+        if hasattr(agent_locator, 'reset'):
+            agent_locator.reset()
         old_loc_red, old_loc_blue = agent_locator.get_locations(state_img)
         old_state = aggregator.aggregate(old_loc_red, old_loc_red,
                                          old_loc_blue, old_loc_blue)
