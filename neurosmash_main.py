@@ -13,6 +13,8 @@ from utils.transformer import Transformer
 from utils.aggregator import Aggregator
 from utils.evaluator import plot_locations, plot_rewards
 import Neurosmash
+import pandas as pd
+import numpy as np
 
 ip = '127.0.0.1'  # IP address that the TCP/IP interface listens to
 port = 13000  # port number that the TCP/IP interface listens to
@@ -93,9 +95,13 @@ def run_agent(agent, num_episodes=1000, train=True,
         print(f'Number of steps: {num_steps[i_episode]}')
         print(f'Reward: {rewards[i_episode]}')
 
+
         if args.r_plot:
             plot_rewards(rewards[:i_episode + 1])
 
+    data = {'win': np.asarray(wins), 'num_steps': np.asarray(num_steps), 'rewards': np.asarray(rewards)}
+    df = pd.DataFrame(data)
+    df.to_csv('current_result.csv')
     return num_steps, wins
 
 
