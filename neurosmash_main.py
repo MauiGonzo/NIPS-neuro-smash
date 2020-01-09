@@ -89,7 +89,9 @@ def run_agent(agent, num_episodes=1000, train=True,
 
         # determine whether the agent lost or won
         wins[i_episode] = reward == 10
-        print('--- WINNER ---' if reward == 10 else '--- LOSER ---')
+        print('--- WINNER ---' if wins[i_episode] else '--- LOSER ---')
+        print(f'Number of steps: {num_steps[i_episode]}')
+        print(f'Reward: {rewards[i_episode]}')
 
         if args.r_plot:
             plot_rewards(rewards[:i_episode + 1])
