@@ -2,6 +2,7 @@ import argparse
 import random
 
 import torch
+import numpy as np
 
 from agents.chase_agent import ChaseAgent
 from agents.neat_agent import NeatAgent
@@ -21,6 +22,7 @@ timescale = 10  # number of timesteps per action
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 data_dir = 'data/'
 models_dir = 'models/'
+cooldown = 5
 
 
 def run_agent(agent, num_episodes=1000, train=True,
@@ -51,6 +53,8 @@ def run_agent(agent, num_episodes=1000, train=True,
         if hasattr(agent_locator, 'reset'):
             agent_locator.reset()
         old_loc_red, old_loc_blue = agent_locator.get_locations(state_img)
+        old_locations = [old_loc_red]*cooldown, [old_loc_blue]*cooldown
+        old_locations = np.stack(old_locations, axis=1)
         old_state = aggregator.aggregate(old_loc_red, old_loc_red,
                                          old_loc_blue, old_loc_blue)
         while not end:
@@ -65,8 +69,8 @@ def run_agent(agent, num_episodes=1000, train=True,
             # do action, get reward and a new observation for the next round
             end, reward, state_img = environment.step(action)
             new_loc_red, new_loc_blue = agent_locator.get_locations(state_img)
-            new_state = aggregator.aggregate(old_loc_red, new_loc_red,
-                                             old_loc_blue, new_loc_blue)
+            new_state = aggregator.aggregate(old_locations[0, 0], new_loc_red,
+                                             old_locations[0, 1], new_loc_blue)
 
             if args.p_plot:  # plot predicted locations of agents
                 plot_locations(environment, transformer, state_img, new_loc_red,
@@ -77,7 +81,8 @@ def run_agent(agent, num_episodes=1000, train=True,
 
             # bookkeeping
             old_state = new_state
-            old_loc_red, old_loc_blue = new_loc_red, new_loc_blue
+            old_locations = old_locations[1:], [[new_loc_red, new_loc_blue]]
+            old_locations = np.concatenate(old_locations, axis=0)
             rewards[i_episode] += reward
             num_steps[i_episode] += 1
 
