@@ -2,6 +2,8 @@ import argparse
 import random
 
 import torch
+import pandas as pd
+import numpy as np
 
 from agents.chase_agent import ChaseAgent
 from agents.neat_agent import NeatAgent
@@ -13,8 +15,6 @@ from utils.transformer import Transformer
 from utils.aggregator import Aggregator
 from utils.evaluator import plot_locations, plot_rewards
 import Neurosmash
-import pandas as pd
-import numpy as np
 
 ip = '127.0.0.1'  # IP address that the TCP/IP interface listens to
 port = 13000  # port number that the TCP/IP interface listens to
@@ -42,9 +42,9 @@ def run_agent(agent, num_episodes=1000, train=True,
         For each episode, the number of steps in the episode and whether
         the red agent was victorious.
     """
-    rewards = [0]*num_episodes
-    num_steps = [0]*num_episodes
     wins = [0]*num_episodes
+    num_steps = [0]*num_episodes
+    rewards = [0]*num_episodes
 
     epsilon = epsilon_start  # initialize epsilon
     for i_episode in range(num_episodes):
@@ -80,8 +80,8 @@ def run_agent(agent, num_episodes=1000, train=True,
             # bookkeeping
             old_state = new_state
             old_loc_red, old_loc_blue = new_loc_red, new_loc_blue
-            rewards[i_episode] += reward
             num_steps[i_episode] += 1
+            rewards[i_episode] += reward
 
             if num_steps[i_episode] > 2500:  # bug in environment
                 break
@@ -95,13 +95,16 @@ def run_agent(agent, num_episodes=1000, train=True,
         print(f'Number of steps: {num_steps[i_episode]}')
         print(f'Reward: {rewards[i_episode]}')
 
-
-        if args.r_plot:
+        if args.r_plot:  # plot smoothed rewards that the agent received
             plot_rewards(rewards[:i_episode + 1])
 
-    data = {'win': np.asarray(wins), 'num_steps': np.asarray(num_steps), 'rewards': np.asarray(rewards)}
-    df = pd.DataFrame(data)
-    df.to_csv('current_result.csv')
+    if args.results_file_name:
+        # save wins, number of steps, and rewards of all episodes to CSV file
+        df = pd.DataFrame({'wins': np.asarray(wins),
+                           'num_steps': np.asarray(num_steps),
+                           'rewards': np.asarray(rewards)})
+        df.to_csv(args.results_file_name)
+
     return num_steps, wins
 
 
@@ -113,16 +116,20 @@ if __name__ == '__main__':
     # process the command options
     parser = argparse.ArgumentParser()
     parser.add_argument('agent', type=str, choices=agents,
-                        help=f'agent to train or run')
+                        help='agent to train or run')
     parser.add_argument('agent_locator', type=str, choices=agent_locators,
                         help='determines positions of agents')
     parser.add_argument('--plot-positions', dest='p_plot', action='store_true',
-                        help='plot the positions of the agents')
+                        help='plot the predicted locations of the agents')
     parser.add_argument('--plot-rewards', dest='r_plot', action='store_true',
                         help='plot the smoothed rewards of the episodes')
     parser.add_argument('--save-difficult', dest='save_difficult',
                         action='store_true')
     parser.add_argument('-save-diff-prob', dest='save_diff_prob', type=float)
+    parser.add_argument('-num-episodes',  dest='num_episodes', default=1000,
+                        type=int, help='number of episodes to run the agent')
+    parser.add_argument('-results-file', dest='results_file_name', type=str,
+                        default='', help='name for the results CSV file')
     args = parser.parse_args()
 
     # connect to environment via TCP/IP
@@ -152,7 +159,7 @@ if __name__ == '__main__':
         print('Training Policy Gradient agent')
         pg_agent = PGAgent(aggregator.num_obs, environment.num_actions,
                            device=device)
-        run_agent(pg_agent)
+        run_agent(pg_agent, num_episodes=args.num_episodes)
         torch.save(pg_agent.model.state_dict(), f'{models_dir}mlp.pt')
     elif args.agent == 'PG_run':
         print('Running Policy Gradient agent')
@@ -160,20 +167,23 @@ if __name__ == '__main__':
                            device=device)
         pg_agent.model.load_state_dict(torch.load(f'{models_dir}mlp.pt'))
         pg_agent.model.eval()
-        run_agent(pg_agent, train=False, epsilon_start=0, epsilon_min=0)
+        run_agent(pg_agent, num_episodes=args.num_episodes, train=False,
+                  epsilon_start=0, epsilon_min=0)
     elif args.agent == 'Q':
         print('Training Q-learning agent')
         q_agent = QAgent(aggregator.num_obs, environment.num_actions,
                          device=device)
-        run_agent(q_agent)
+        run_agent(q_agent, num_episodes=args.num_episodes)
         torch.save(q_agent.policy_network.state_dict(), f'{models_dir}ddqn.pt')
     elif args.agent == 'Q_run':
         print('Running Q-learning agent')
         q_agent = QAgent(aggregator.num_obs, environment.num_actions,
                          device=device)
-        q_agent.policy_network.load_state_dict(torch.load(f'{models_dir}ddqn.pt'))
+        ddqn = torch.load(f'{models_dir}ddqn.pt')
+        q_agent.policy_network.load_state_dict(ddqn)
         q_agent.policy_network.eval()
-        run_agent(q_agent, train=False, epsilon_start=0, epsilon_min=0)
+        run_agent(q_agent, num_episodes=args.num_episodes, train=False,
+                  epsilon_start=0, epsilon_min=0)
     elif args.agent == 'NEAT':
         print('Training NEAT agent')
         neat_agent = NeatAgent(f'{models_dir}NEAT_new/', run_agent)
@@ -181,12 +191,15 @@ if __name__ == '__main__':
     elif args.agent == 'NEAT_run':
         print('Running NEAT agent')
         neat_agent = NeatAgent(f'{models_dir}NEAT/', run_agent)
-        run_agent(neat_agent, epsilon_start=0, epsilon_min=0)
+        run_agent(neat_agent, num_episodes=args.num_episodes,
+                  epsilon_start=0, epsilon_min=0)
     elif args.agent == 'chase':
         print('Running chase agent')
         chase_agent = ChaseAgent(aggregator)
-        run_agent(chase_agent, epsilon_start=0, epsilon_min=0)
+        run_agent(chase_agent, num_episodes=args.num_episodes,
+                  epsilon_start=0, epsilon_min=0)
     else:  # args.agent == 'left'
         print('Running left agent')
         left_agent = Neurosmash.Agent()
-        run_agent(left_agent, epsilon_start=0, epsilon_min=0)
+        run_agent(left_agent, num_episodes=args.num_episodes,
+                  epsilon_start=0, epsilon_min=0)

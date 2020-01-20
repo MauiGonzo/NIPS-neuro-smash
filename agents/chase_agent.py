@@ -1,5 +1,6 @@
-import Neurosmash
 import math
+
+import Neurosmash
 
 
 class ChaseAgent(Neurosmash.Agent):
