@@ -268,5 +268,6 @@ class QAgent(Neurosmash.Agent):
         # update target network periodically
         self.num_steps += 1
         if self.num_steps % self.num_update == 0:
-            self.target_network.load_state_dict(self.policy_network.state_dict())
+            state_dict = self.policy_network.state_dict()
+            self.target_network.load_state_dict(state_dict)
             print(f'loss: {loss}')

@@ -113,6 +113,8 @@ def evaluate_locations(agent_locator, num_episodes=10):
     rewards = []
     for _ in range(num_episodes):
         end, reward, state = environment.reset()
+        if hasattr(agent_locator, 'reset'):
+            agent_locator.reset()
         rewards.append(reward)
 
         while not end:

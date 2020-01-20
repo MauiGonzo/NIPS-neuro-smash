@@ -1,5 +1,6 @@
-import numpy as np
 import socket
+
+import numpy as np
 from PIL import Image
 
 
@@ -34,7 +35,7 @@ class Environment:
         return self._receive()
 
     def state2image(self, state):
-        state = np.array(state, np.uint8).reshape(self.size, self.size, 3)
+        state = np.array(state, np.uint8).reshape((self.size, self.size, 3))
         return Image.fromarray(state)
 
     def _receive(self):
