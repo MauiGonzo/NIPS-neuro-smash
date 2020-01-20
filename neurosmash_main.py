@@ -1,5 +1,7 @@
 import argparse
+import os
 import random
+import subprocess
 
 import torch
 
@@ -10,7 +12,7 @@ from agents.q_agent import QAgent
 from locators.agent_locator import AgentLocator
 from locators.cnn import TwoCNNsLocator
 from utils.transformer import Transformer
-from utils.aggregator import Aggregator
+from utils.aggregator import Aggregator, AggregationType
 from utils.evaluator import plot_locations, plot_rewards
 import Neurosmash
 
@@ -53,6 +55,7 @@ def run_agent(agent, num_episodes=1000, train=True,
         old_loc_red, old_loc_blue = agent_locator.get_locations(state_img)
         old_state = aggregator.aggregate(old_loc_red, old_loc_red,
                                          old_loc_blue, old_loc_blue)
+
         while not end:
             # choose an action
             if random.random() < epsilon:
@@ -81,7 +84,7 @@ def run_agent(agent, num_episodes=1000, train=True,
             rewards[i_episode] += reward
             num_steps[i_episode] += 1
 
-            if num_steps[i_episode] > 2500:  # bug in environment
+            if num_steps[i_episode] > args.timeout:  # bug in environment
                 break
 
             # decay epsilon parameter
@@ -101,6 +104,10 @@ if __name__ == '__main__':
     # combinations of options for agent and agent locator
     agents = ['PG', 'PG_run', 'Q', 'Q_run', 'NEAT', 'NEAT_run', 'left', 'chase']
     agent_locators = ['TwoCNNs', 'Vision']
+    aggregation_types = {
+        'FULL': AggregationType.FULL,
+        'POS-ONLY': AggregationType.POS_ONLY
+    }
 
     # process the command options
     parser = argparse.ArgumentParser()
@@ -108,6 +115,7 @@ if __name__ == '__main__':
                         help=f'agent to train or run')
     parser.add_argument('agent_locator', type=str, choices=agent_locators,
                         help='determines positions of agents')
+    parser.add_argument('-aggregation-type', dest='aggregation_type', type=str, choices=aggregation_types.keys(), default='FULL')
     parser.add_argument('--plot-positions', dest='p_plot', action='store_true',
                         help='plot the positions of the agents')
     parser.add_argument('--plot-rewards', dest='r_plot', action='store_true',
@@ -115,7 +123,17 @@ if __name__ == '__main__':
     parser.add_argument('--save-difficult', dest='save_difficult',
                         action='store_true')
     parser.add_argument('-save-diff-prob', dest='save_diff_prob', type=float)
+    parser.add_argument('--auto-start-smash', dest='auto_start', action='store_true')
+    parser.add_argument('-neat-name', dest='neat_name', type=str)
+    parser.add_argument('-timeout', type=int, default=2500)
+    parser.add_argument('--evaluate', action='store_true')
     args = parser.parse_args()
+
+    process = None
+
+    if args.auto_start:
+        if os.name == 'nt':
+            process = subprocess.Popen([r".\PC\Neurosmash.exe"])
 
     # connect to environment via TCP/IP
     environment = None
@@ -129,7 +147,8 @@ if __name__ == '__main__':
 
     # initialize the transformer, aggregator, and agent locator
     transformer = Transformer(size, bg_file_name=f'{data_dir}background_64.png')
-    aggregator = Aggregator(size, device=device)
+    aggregator = Aggregator(size, device=device,
+                            aggregation_type=aggregation_types[args.aggregation_type])
     if args.agent_locator == 'TwoCNNs':
         agent_locator = TwoCNNsLocator(environment, transformer,
                                        models_dir=models_dir, device=device)
@@ -167,8 +186,8 @@ if __name__ == '__main__':
         q_agent.policy_network.eval()
         run_agent(q_agent, train=False, epsilon_start=0, epsilon_min=0)
     elif args.agent == 'NEAT':
-        print('Training NEAT agent')
-        neat_agent = NeatAgent(f'{models_dir}NEAT_new/', run_agent)
+        print('Processing NEAT agent')
+        neat_agent = NeatAgent(os.path.join(models_dir, f'NEAT-{args.neat_name}'), run_agent, aggregator.aggregation_type, args.timeout, args.evaluate)
         neat_agent.run()
     elif args.agent == 'NEAT_run':
         print('Running NEAT agent')
@@ -182,3 +201,6 @@ if __name__ == '__main__':
         print('Running left agent')
         left_agent = Neurosmash.Agent()
         run_agent(left_agent, epsilon_start=0, epsilon_min=0)
+
+    if args.auto_start:
+        process.kill()

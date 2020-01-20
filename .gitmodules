@@ -1,0 +1,3 @@
+[submodule "py-neat"]
+	path = py-neat
+	url = https://github.com/rhacking/py-neat.git

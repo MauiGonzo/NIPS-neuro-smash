@@ -32,7 +32,7 @@ blue = np.array([120, 128, 163])
 
 class Agent(object):
     """Keeps track of an agent's position and velocity
-    
+
     Attributes:
         pos (Optional[np.ndarray], optional): The position of the agent (in pixels). Defaults to None.
         vel (Optional[np.ndarray], optional): The velocity of the agent (in pixels/frame). Defaults to None.
@@ -68,16 +68,65 @@ class Agent(object):
         :return: Whether the agent accepts the new position
         :rtype: bool
         """
+        lag = self.lag_overlap if overlap else self.lag
         if self.last_pos_update is not None:
             self.vel = (new_pos - self.pos) / (frame - self.last_pos_update)
             # self.avg_vel += [np.linalg.norm(self.vel)]
             # print(np.mean(self.avg_vel), np.percentile(self.avg_vel, [50, 75, 99, 100]))
             # TODO: Make this threshold configurable
-            if np.linalg.norm(self.vel) > 3.86:
-                self.update_pos_based_on_vel(frame - self.last_pos_update)
+            speed = np.linalg.norm(self.vel)
+            if speed > 5.85:
                 return False
+            elif speed > 5.4:
+                lag = 0.6
+                self.pos = (new_pos * (1 - lag) + self.pos * lag) if self.pos is not None else new_pos
 
-        lag = self.lag_overlap if overlap else self.lag
+                return False
+            elif speed > 4:
+                lag = 0.32
+                self.pos = (new_pos * (1 - lag) + self.pos * lag) if self.pos is not None else new_pos
+
+                return False
+            elif speed > 3:
+                lag = 0.2
+                self.pos = (new_pos * (1 - lag) + self.pos * lag) if self.pos is not None else new_pos
+
+                return False
+            elif speed > 2.7:
+                lag = 0.13
+                self.pos = (new_pos * (1 - lag) + self.pos * lag) if self.pos is not None else new_pos
+
+                return False
+            # elif np.linalg.norm(self.vel) > 5:
+            #     print('argh3')
+            #     print(np.linalg.norm(self.vel))
+            #     lag = self.lag_overlap*4.4
+            #     self.pos = (new_pos * (1 - lag) + self.pos * lag) if self.pos is not None else new_pos
+
+            #     return False
+            # elif np.linalg.norm(self.vel) > 4.65:
+            #     print('argh2')
+            #     print(np.linalg.norm(self.vel))
+            #     lag = self.lag_overlap*3.2
+            #     self.pos = (new_pos * (1 - lag) + self.pos * lag) if self.pos is not None else new_pos
+
+            #     return False
+            # elif np.linalg.norm(self.vel) > 4:
+            #     print('argh1')
+            #     print(np.linalg.norm(self.vel))
+            #     lag = self.lag_overlap*2.2
+            #     self.pos = (new_pos * (1 - lag) + self.pos * lag) if self.pos is not None else new_pos
+            #     return False
+            # elif np.linalg.norm(self.vel) > 3.42:
+            #     print('argh0')
+            #     print(np.linalg.norm(self.vel))
+            #     lag = self.lag_overlap*1.6
+            #     self.pos = (new_pos * (1 - lag) + self.pos * lag) if self.pos is not None else new_pos
+            #     return False
+            # if overlap and np.linalg.norm(self.vel) >= 2.5:
+            #     lag *= (np.linalg.norm(self.vel)/2.5)**1.5 * 1.4
+            #     lag = min(1, lag)
+
         self.pos = (new_pos * (1 - lag) + self.pos * lag) if self.pos is not None else new_pos
         self.pos_hist.append(self.pos)
         self.computed_pos = new_pos
@@ -86,13 +135,13 @@ class Agent(object):
         return True
 
     def update_pos_based_on_vel(self, frame_delta: int):
-        """Updates the agent's position based on it's velocity. 
+        """Updates the agent's position based on it's velocity.
 
         Requires position and velocity to have previously computed values
-        
+
         Args:
             frame_delta (int): The number of frames of velocity to compute
-        
+
         Raises:
             ValueError: If either position or velocity is None
         """
@@ -128,7 +177,7 @@ def _grayness(c: np.ndarray) -> float:
 
 class AgentLocator(object):
     """Keeps track of agents based on either their previously recorded velocity or a state image
-    
+
     Attributes:
         blue_agent (Agent): The blue agent position and velocity
         red_agent (Agent): The red agent position and velocity
@@ -138,7 +187,8 @@ class AgentLocator(object):
     def __init__(self, use_dilation: bool = False, use_erosion: bool = False, use_overlap_label_dilation: bool = True,
                  cooldown_time: int = 5,
                  minimum_agent_area: int = 4, minimum_agent_area_overlap: int = 3, blue_marker_thresh: int = 5,
-                 red_marker_thresh: int = 5, lag: float = 0.03, lag_overlap: float = 0.36, save_difficult: bool = False,
+                 red_marker_thresh: int = 5, lag: float = 0.005, lag_overlap: float = 0.05,
+                 save_difficult: bool = False,
                  save_difficult_prob: float = 0.001):
         """
 
@@ -195,7 +245,6 @@ class AgentLocator(object):
         """
         self.errored = False
         state_img = state_img.astype(np.float)
-        # FIXME: Do not catch all exceptions...
         try:
             self.frame_counter += 1
             logging.debug(f'\nFrame {self.frame_counter}')
@@ -220,22 +269,17 @@ class AgentLocator(object):
                                          overlap_agents[:, :, 2].shape)
                 red = overlap_agents[index]
 
-                # plt.imshow(segmented)
-                # plt.show()
-                #
-                # plt.imshow(overlap_agents)
-                # plt.show()
-
                 if len(regions) == 1:
                     # TODO: Make grayness threshold configurable
                     logging.debug(
                         f'Single region found, red grayness: {_grayness(red)}, blue grayness {_grayness(blue)}')
-                    if _grayness(red) > 3.5:
+                    # print(_grayness(red), _grayness(blue))
+                    if _grayness(red) > 3.9:
                         logging.debug('Only blue agent detected')
                         self.blue_agent.update_pos(np.array(regions[0].centroid), self.frame_counter, overlap=False)
                         self.red_agent.update_pos_based_on_vel(1)
                         return
-                    elif _grayness(blue) > 3.5:
+                    elif _grayness(blue) > 3.9:
                         logging.debug('Only red agent detected')
                         self.red_agent.update_pos(np.array(regions[0].centroid), self.frame_counter, overlap=False)
                         self.blue_agent.update_pos_based_on_vel(1)
@@ -270,28 +314,15 @@ class AgentLocator(object):
                             return
 
                     fail_sum = 0
-
-                    # FIXME: This is unnecessary
-                    if (np.min(np.mean(np.abs(
-                            (overlap_agents * np.repeat((labeled == 2)[:, :, np.newaxis], 3, axis=2)).astype(
-                                np.float) - red), axis=2)) <
-                            np.min(np.mean(np.abs(
-                                (overlap_agents * np.repeat((labeled == 2)[:, :, np.newaxis], 3, axis=2)).astype(
-                                    np.float) - blue), axis=2))):
-                        fail_sum += not self.blue_agent.update_pos(np.array(center_of_mass(labeled == 1)),
+                    fail_sum += not self.blue_agent.update_pos(np.array(center_of_mass(labeled == 1)),
                                                                self.frame_counter, overlap=True)
-                        fail_sum += not self.red_agent.update_pos(np.array(center_of_mass(labeled == 2)),
-                                                              self.frame_counter, overlap=True)
-                    else:
-                        fail_sum += not self.blue_agent.update_pos(np.array(center_of_mass(labeled == 2)),
-                                                               self.frame_counter, overlap=True)
-                        fail_sum += not self.red_agent.update_pos(np.array(center_of_mass(labeled == 1)),
+                    fail_sum += not self.red_agent.update_pos(np.array(center_of_mass(labeled == 2)),
                                                               self.frame_counter, overlap=True)
 
                     if fail_sum > 0:
                         logging.debug('At least one agent detected error in localization')
                         if DEBUG:
-                            plt.imshow(state_img/255)
+                            plt.imshow(state_img / 255)
                             plt.show()
 
                             plt.imshow(segmented)
@@ -306,7 +337,7 @@ class AgentLocator(object):
                             plt.imshow(labeled)
                             plt.show()
 
-                            plt.imshow(state_img/255)
+                            plt.imshow(state_img / 255)
                             if (np.min(np.mean(np.abs(
                                     (overlap_agents * np.repeat((labeled == 2)[:, :, np.newaxis], 3, axis=2)).astype(
                                         np.float) - red), axis=2)) <
@@ -322,7 +353,6 @@ class AgentLocator(object):
                             plt.scatter([blue_pos[1]], [blue_pos[0]], c='b')
                             plt.scatter([red_pos[1]], [red_pos[0]], c='r')
                             plt.show()
-                            print('test')
 
                         self._save_difficult(state_img, labeled, markers)
                 else:
